@@ -560,7 +560,36 @@ select:focus, input:focus, textarea:focus { border-color: var(--navy); }
       <div class="card-title">Entrega</div>
       <div class="field" style="margin-bottom:0">
         <label>Fecha de entrega deseada</label>
-        <input type="date" id="fecha">
+        <div id="cal-display" onclick="openCal()" style="cursor:pointer;width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:12px;font-size:16px;color:var(--text-mid);background:var(--cream);display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;">
+          <span id="cal-display-txt">Selecciona una fecha…</span>
+          <span style="font-size:18px;">📅</span>
+        </div>
+        <input type="hidden" id="fecha" value="">
+      </div>
+    </div>
+    <!-- CALENDAR MODAL -->
+    <div id="cal-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(27,45,107,0.45);z-index:300;align-items:flex-end;justify-content:center;">
+      <div id="cal-modal" style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 16px 36px;box-sizing:border-box;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <button onclick="calNav(-1)" style="background:var(--gray);border:none;border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer;">‹</button>
+          <span id="cal-month-label" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:0.05em;"></span>
+          <button onclick="calNav(1)" style="background:var(--gray);border:none;border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer;">›</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center;margin-bottom:6px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-light);padding:4px 0;">L</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-light);padding:4px 0;">M</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-light);padding:4px 0;">X</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-light);padding:4px 0;">J</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-light);padding:4px 0;">V</div>
+          <div style="font-size:11px;font-weight:700;color:#E24B4A;padding:4px 0;">S</div>
+          <div style="font-size:11px;font-weight:700;color:#E24B4A;padding:4px 0;">D</div>
+        </div>
+        <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center;"></div>
+        <div style="margin-top:12px;background:#FEF2F2;border-radius:8px;padding:8px 12px;font-size:12px;color:#991B1B;display:flex;align-items:center;gap:6px;">
+          <span style="width:12px;height:12px;background:#FCA5A5;border-radius:3px;flex-shrink:0;display:inline-block;"></span>
+          No disponible (festivo o fin de semana)
+        </div>
+        <button onclick="closeCal()" style="margin-top:12px;width:100%;padding:14px;background:var(--gray);border:none;border-radius:12px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--text-mid);cursor:pointer;text-transform:uppercase;">Cerrar</button>
       </div>
     </div>
   </div>
@@ -937,7 +966,7 @@ function nextStep() {
     if (!hel) { alert('Por favor, selecciona tu heladería.'); return; }
     if (!fec) {
       const mf = calcMinFecha();
-      alert('Por favor, selecciona la fecha de entrega. La primera fecha disponible es el ' + mf.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) + '.');
+      alert('Por favor, selecciona la fecha de entrega.\nLa primera fecha disponible es el ' + mf.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) + '.');
       return;
     }
     show('s1','s2'); step=2;
@@ -1125,60 +1154,110 @@ function resetApp() {
 
 // Festivos nacionales España + Comunidad Valenciana 2025 y 2026
 const FESTIVOS = new Set([
-  // 2025 - Nacionales
   '2025-01-01','2025-01-06','2025-04-18','2025-05-01',
   '2025-08-15','2025-10-12','2025-11-01','2025-12-06',
   '2025-12-08','2025-12-25',
-  // 2025 - Comunidad Valenciana
-  '2025-03-19','2025-04-17','2025-06-09','2025-06-24',
-  '2025-10-09',
-  // 2026 - Nacionales
+  '2025-03-19','2025-04-17','2025-06-09','2025-06-24','2025-10-09',
   '2026-01-01','2026-01-06','2026-04-03','2026-05-01',
   '2026-08-15','2026-10-12','2026-11-01','2026-12-06',
   '2026-12-08','2026-12-25',
-  // 2026 - Comunidad Valenciana
-  '2026-03-19','2026-04-02','2026-06-09','2026-06-24',
-  '2026-10-09',
+  '2026-03-19','2026-04-02','2026-06-09','2026-06-24','2026-10-09',
 ]);
 
+function isoDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+dd;
+}
 function esDiaHabil(d) {
-  const dow = d.getDay(); // 0=dom, 6=sab
+  const dow = d.getDay();
   if (dow === 0 || dow === 6) return false;
-  const iso = d.toISOString().split('T')[0];
-  return !FESTIVOS.has(iso);
+  return !FESTIVOS.has(isoDate(d));
 }
-
 function calcMinFecha() {
-  let d = new Date();
-  d.setHours(0,0,0,0);
-  let habilesContados = 0;
-  while (habilesContados < 3) {
-    d.setDate(d.getDate() + 1);
-    if (esDiaHabil(d)) habilesContados++;
-  }
-  // Si el día resultante tampoco es hábil, avanzar al siguiente hábil
-  while (!esDiaHabil(d)) { d.setDate(d.getDate() + 1); }
-  return d;
+  const d = new Date(); d.setHours(0,0,0,0);
+  let count = 0;
+  while (count < 3) { d.setDate(d.getDate()+1); if (esDiaHabil(d)) count++; }
+  while (!esDiaHabil(d)) d.setDate(d.getDate()+1);
+  return new Date(d);
 }
 
-const minFecha = calcMinFecha();
-const minFechaStr = minFecha.toISOString().split('T')[0];
-document.getElementById('fecha').min = minFechaStr;
-document.getElementById('fecha').value = '';
+// ── CUSTOM CALENDAR ──────────────────────────────────────────────────────────
+let calYear, calMonth, calMinDate;
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-// Validate date on change — block weekends and holidays
-document.getElementById('fecha').addEventListener('change', function() {
-  const val = this.value;
-  if (!val) return;
-  const parts = val.split('-');
-  const chosen = new Date(+parts[0], +parts[1]-1, +parts[2]);
-  if (!esDiaHabil(chosen)) {
-    alert('Esa fecha es festivo, sábado o domingo. Por favor elige un día laborable.');
-    this.value = '';
-  } else if (val < minFechaStr) {
-    alert('La fecha mínima de entrega es ' + minFecha.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}) + '.');
-    this.value = '';
+function openCal() {
+  calMinDate = calcMinFecha();
+  const ref = calMinDate;
+  calYear = ref.getFullYear();
+  calMonth = ref.getMonth();
+  renderCal();
+  document.getElementById('cal-overlay').style.display = 'flex';
+}
+function closeCal() {
+  document.getElementById('cal-overlay').style.display = 'none';
+}
+function calNav(dir) {
+  calMonth += dir;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0)  { calMonth = 11; calYear--; }
+  renderCal();
+}
+function renderCal() {
+  document.getElementById('cal-month-label').textContent = MESES[calMonth] + ' ' + calYear;
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+  const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=sun
+  const startCol = firstDay === 0 ? 6 : firstDay - 1; // Mon=0
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const selectedIso = document.getElementById('fecha').value;
+
+  // Empty cells
+  for (let i=0; i<startCol; i++) {
+    grid.insertAdjacentHTML('beforeend','<div></div>');
   }
+  for (let day=1; day<=daysInMonth; day++) {
+    const d = new Date(calYear, calMonth, day);
+    const iso = isoDate(d);
+    const habil = esDiaHabil(d);
+    const beforeMin = d < calMinDate;
+    const disabled = !habil || beforeMin;
+    const isSelected = iso === selectedIso;
+    const isSatSun = d.getDay()===0 || d.getDay()===6;
+    const isFestivo = FESTIVOS.has(iso);
+
+    let bg = 'transparent'; let color = 'var(--navy)'; let cursor = 'pointer';
+    let border = 'none'; let opacity = '1';
+    if (isSelected) { bg = 'var(--navy)'; color = '#fff'; }
+    else if (disabled) {
+      bg = '#FEE2E2'; color = '#EF4444'; cursor = 'default'; opacity = '0.7';
+    }
+
+    const btn = document.createElement('div');
+    btn.style.cssText = `padding:8px 2px;border-radius:8px;font-size:14px;font-weight:${isSelected?'700':'500'};background:${bg};color:${color};cursor:${cursor};opacity:${opacity};transition:background 0.15s;user-select:none;-webkit-tap-highlight-color:transparent;`;
+    btn.textContent = day;
+    if (!disabled) {
+      btn.addEventListener('click', () => selectDate(iso, d));
+      btn.addEventListener('mouseover', () => { if (!isSelected) btn.style.background='var(--gray)'; });
+      btn.addEventListener('mouseout', () => { if (!isSelected) btn.style.background='transparent'; });
+    }
+    if (disabled && (isSatSun || isFestivo)) {
+      btn.title = isFestivo ? 'Festivo' : 'Fin de semana';
+    }
+    grid.appendChild(btn);
+  }
+}
+function selectDate(iso, d) {
+  document.getElementById('fecha').value = iso;
+  const opts = {weekday:'long', day:'numeric', month:'long', year:'numeric'};
+  document.getElementById('cal-display-txt').textContent = d.toLocaleDateString('es-ES', opts);
+  document.getElementById('cal-display-txt').style.color = 'var(--text)';
+  closeCal();
+}
+// Close cal if overlay clicked
+document.getElementById('cal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeCal();
 });
 buildProductList();
 buildAuxList();
