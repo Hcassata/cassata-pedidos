@@ -3,11 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Cassata — Pedidos</title>
+<title>Pedidos Cassata</title>
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="shortcut icon" href="icon.png" type="image/png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Cassata Pedidos">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pedidos Cassata">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="Pedidos Cassata">
+<meta name="theme-color" content="#1B2D6B">
+<link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -930,7 +935,11 @@ function nextStep() {
     const hel = document.getElementById('heladeria').value.trim();
     const fec = document.getElementById('fecha').value.trim();
     if (!hel) { alert('Por favor, selecciona tu heladería.'); return; }
-    if (!fec) { alert('Por favor, selecciona la fecha de entrega.'); return; }
+    if (!fec) {
+      const mf = calcMinFecha();
+      alert('Por favor, selecciona la fecha de entrega. La primera fecha disponible es el ' + mf.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) + '.');
+      return;
+    }
     show('s1','s2'); step=2;
     document.getElementById('btn-back').style.display='';
     document.getElementById('btn-next').textContent='Ver resumen →';
@@ -1114,8 +1123,63 @@ function resetApp() {
   buildProductList(); buildAuxList(); updateDots();
 }
 
-const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
-document.getElementById('fecha').min = tomorrow.toISOString().split('T')[0];
+// Festivos nacionales España + Comunidad Valenciana 2025 y 2026
+const FESTIVOS = new Set([
+  // 2025 - Nacionales
+  '2025-01-01','2025-01-06','2025-04-18','2025-05-01',
+  '2025-08-15','2025-10-12','2025-11-01','2025-12-06',
+  '2025-12-08','2025-12-25',
+  // 2025 - Comunidad Valenciana
+  '2025-03-19','2025-04-17','2025-06-09','2025-06-24',
+  '2025-10-09',
+  // 2026 - Nacionales
+  '2026-01-01','2026-01-06','2026-04-03','2026-05-01',
+  '2026-08-15','2026-10-12','2026-11-01','2026-12-06',
+  '2026-12-08','2026-12-25',
+  // 2026 - Comunidad Valenciana
+  '2026-03-19','2026-04-02','2026-06-09','2026-06-24',
+  '2026-10-09',
+]);
+
+function esDiaHabil(d) {
+  const dow = d.getDay(); // 0=dom, 6=sab
+  if (dow === 0 || dow === 6) return false;
+  const iso = d.toISOString().split('T')[0];
+  return !FESTIVOS.has(iso);
+}
+
+function calcMinFecha() {
+  let d = new Date();
+  d.setHours(0,0,0,0);
+  let habilesContados = 0;
+  while (habilesContados < 3) {
+    d.setDate(d.getDate() + 1);
+    if (esDiaHabil(d)) habilesContados++;
+  }
+  // Si el día resultante tampoco es hábil, avanzar al siguiente hábil
+  while (!esDiaHabil(d)) { d.setDate(d.getDate() + 1); }
+  return d;
+}
+
+const minFecha = calcMinFecha();
+const minFechaStr = minFecha.toISOString().split('T')[0];
+document.getElementById('fecha').min = minFechaStr;
+document.getElementById('fecha').value = '';
+
+// Validate date on change — block weekends and holidays
+document.getElementById('fecha').addEventListener('change', function() {
+  const val = this.value;
+  if (!val) return;
+  const parts = val.split('-');
+  const chosen = new Date(+parts[0], +parts[1]-1, +parts[2]);
+  if (!esDiaHabil(chosen)) {
+    alert('Esa fecha es festivo, sábado o domingo. Por favor elige un día laborable.');
+    this.value = '';
+  } else if (val < minFechaStr) {
+    alert('La fecha mínima de entrega es ' + minFecha.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}) + '.');
+    this.value = '';
+  }
+});
 buildProductList();
 buildAuxList();
 
@@ -1337,6 +1401,47 @@ document.head.appendChild(fabStyle);
 // Init
 fabLoad(); updateBadge();
 
+</script>
+
+<!-- PWA Install button (Android/Desktop) -->
+<button id="pwa-install-btn" onclick="installPWA()" style="display:none;position:fixed;bottom:90px;left:16px;z-index:150;background:#F5C518;color:#1B2D6B;border:none;border-radius:24px;padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;cursor:pointer;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(27,45,107,0.25);-webkit-tap-highlight-color:transparent;">
+  ⬇ Instalar app
+</button>
+
+<!-- iOS install hint -->
+<div id="ios-install-hint" style="display:none;position:fixed;bottom:90px;left:12px;right:12px;z-index:150;background:#1B2D6B;color:#fff;border-radius:14px;padding:12px 16px;font-size:13px;font-family:'Barlow',sans-serif;align-items:flex-start;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+  <span style="font-size:20px;flex-shrink:0;">📲</span>
+  <div>
+    <div style="font-weight:600;margin-bottom:3px;">Añadir a pantalla de inicio</div>
+    <div style="opacity:0.85;line-height:1.4;">Pulsa <strong>Compartir</strong> <span style="font-size:15px;">⎙</span> y luego <strong>"Añadir a pantalla de inicio"</strong> para instalar Pedidos Cassata como app.</div>
+    <button onclick="document.getElementById('ios-install-hint').style.display='none'" style="margin-top:8px;background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:#fff;padding:5px 12px;font-size:12px;cursor:pointer;">Entendido</button>
+  </div>
+</div>
+
+<script>
+// PWA Install prompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('pwa-install-btn').style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('pwa-install-btn').style.display = 'none';
+  deferredPrompt = null;
+});
+function installPWA() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+  }
+}
+// iOS detection for install instructions
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+const isStandalone = window.navigator.standalone === true;
+if (isIOS && !isStandalone) {
+  document.getElementById('ios-install-hint').style.display = 'flex';
+}
 </script>
 </body>
 </html>
