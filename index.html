@@ -1094,7 +1094,7 @@ async function sendOrder() {
   // Send via EmailJS
   try {
     await emailjs.send('service_k06myje', 'Template_iv8e9sg', {
-      subject:        `Pedido ${heladeria} — Entrega: ${fechaDisplay}`,
+      subject:        `Pedido Cassata ${heladeria.replace('Cassata ','').replace('cassata ','')} — ${fechaPedido}`,
       heladeria:      heladeria,
       contacto:       contacto || '—',
       telefono:       telefono || '—',
@@ -1104,6 +1104,24 @@ async function sendOrder() {
     });
   } catch(e) {
     console.warn('Error EmailJS:', e);
+  }
+
+  // Push notification via ntfy.sh
+  try {
+    const fechaCorta = fecha ? new Date(fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}) : '—';
+    await fetch('https://ntfy.sh/cassata-pedidos-jmgil', {
+      method: 'POST',
+      headers: {
+        'Title': '🍦 Nuevo pedido — ' + heladeria,
+        'Body':  'Entrega: ' + fechaCorta + (obs ? ' · ' + obs : ''),
+        'Priority': 'high',
+        'Tags': 'icecream,incoming_envelope',
+        'Content-Type': 'text/plain',
+      },
+      body: heladeria + ' · Entrega: ' + fechaCorta + (contacto ? ' · ' + contacto : ''),
+    });
+  } catch(e) {
+    console.warn('Error ntfy:', e);
   }
 
   let html = '';
