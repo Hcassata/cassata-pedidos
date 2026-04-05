@@ -13,6 +13,8 @@
 <meta name="application-name" content="Pedidos Cassata">
 <meta name="theme-color" content="#1B2D6B">
 <link rel="manifest" href="manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>emailjs.init('3s3PGsPPXzkUheBf5');</script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -1085,22 +1087,23 @@ async function sendOrder() {
   const helNom = heladeria.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
   downloadCSV(csvContent, `Pedido_Cassata_${helNom}_${fechaStr}.csv`);
 
+  // Format dates nicely
+  const fechaDisplay = fecha ? new Date(fecha+'T00:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) : '—';
+  const fechaPedido = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+  // Send via EmailJS
   try {
-    await fetch('https://formspree.io/f/mgoplaoz', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({
-        _subject: `Nuevo pedido — ${heladeria}`,
-        'Heladería': heladeria,
-        'Contacto': contacto,
-        'Teléfono': telefono,
-        'Fecha de entrega': fecha,
-        'Pedido': pedidoTexto,
-        'Observaciones': obs || '—',
-      })
+    await emailjs.send('service_k06myje', 'Template_iv8e9sg', {
+      subject:        `Pedido ${heladeria} — Entrega: ${fechaDisplay}`,
+      heladeria:      heladeria,
+      contacto:       contacto || '—',
+      telefono:       telefono || '—',
+      fecha_pedido:   fechaPedido,
+      fecha_servicio: fechaDisplay,
+      observaciones:  obs || '—',
     });
   } catch(e) {
-    console.warn('Error Formspree:', e);
+    console.warn('Error EmailJS:', e);
   }
 
   let html = '';
