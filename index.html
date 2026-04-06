@@ -1087,41 +1087,25 @@ async function sendOrder() {
   const helNom = heladeria.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
   downloadCSV(csvContent, `Pedido_Cassata_${helNom}_${fechaStr}.csv`);
 
-  // Format dates nicely
-  const fechaDisplay = fecha ? new Date(fecha+'T00:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) : '—';
-  const fechaPedido = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
-
-  // Send via EmailJS
+  // Send to Google Sheets (handles email + ntfy automatically)
   try {
-    await emailjs.send('service_k06myje', 'Template_iv8e9sg', {
-      subject:        `Pedido Cassata ${heladeria.replace('Cassata ','').replace('cassata ','')} — ${fechaPedido}`,
-      heladeria:      heladeria,
-      contacto:       contacto || '—',
-      telefono:       telefono || '—',
-      fecha_pedido:   fechaPedido,
-      fecha_servicio: fechaDisplay,
-      observaciones:  obs || '—',
-    });
-  } catch(e) {
-    console.warn('Error EmailJS:', e);
-  }
-
-  // Push notification via ntfy.sh
-  try {
-    const fechaCorta = fecha ? new Date(fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}) : '—';
-    await fetch('https://ntfy.sh/cassata-pedidos-jmgil', {
+    await fetch('https://script.google.com/macros/s/AKfycby7rOiUcG1VIh62W1ro0D5XYtzPy3u1WayRv_Hp3KH1yxVbGXzk5GJi2ZiwLbkEm6CehQ/exec', {
       method: 'POST',
-      headers: {
-        'Title': '🍦 Nuevo pedido — ' + heladeria,
-        'Body':  'Entrega: ' + fechaCorta + (obs ? ' · ' + obs : ''),
-        'Priority': 'high',
-        'Tags': 'icecream,incoming_envelope',
-        'Content-Type': 'text/plain',
-      },
-      body: heladeria + ' · Entrega: ' + fechaCorta + (contacto ? ' · ' + contacto : ''),
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action:          'save',
+        heladeria:       heladeria,
+        contacto:        contacto || '',
+        telefono:        telefono || '',
+        fecha_servicio:  fecha,
+        observaciones:   obs || '',
+        total:           getTotal(),
+        items:           getItems().map(([key,v])=>({key, qty:v.qty, price:v.price})),
+      })
     });
   } catch(e) {
-    console.warn('Error ntfy:', e);
+    console.warn('Error Google Sheets:', e);
   }
 
   let html = '';
@@ -1143,17 +1127,7 @@ async function sendOrder() {
   }
   html+=`<div class="r-total"><span>Total (sin IVA)</span><span>${getTotal().toFixed(2)} €</span></div>`;
   document.getElementById('success-resumen').innerHTML=html;
-  // Store order in factory panel
-  const orderRecord = {
-    id: Date.now(),
-    heladeria, contacto, telefono, fecha,
-    obs: obs||'',
-    status: 'pending',
-    total: getTotal(),
-    items: getItems().map(([key,v])=>({key, qty:v.qty, price:v.price})),
-    createdAt: new Date().toISOString()
-  };
-  fabStorePedido(orderRecord);
+  // Orders stored centrally in Google Sheets
 
   show('s3','s4');
   document.getElementById('bottom-bar').style.display='none';
@@ -1286,63 +1260,67 @@ buildAuxList();
 // ============================================================
 // FACTORY PANEL
 // ============================================================
-const FAB_PASSWORD = 'cassata2025';
-const FAB_STORE_KEY = 'cassata_pedidos_v1';
-let fabOrders = [];
-let fabLoggedIn = false;
+const FAB_PASSWORD  = 'cassata2025';
+const SHEETS_URL    = 'https://script.google.com/macros/s/AKfycby7rOiUcG1VIh62W1ro0D5XYtzPy3u1WayRv_Hp3KH1yxVbGXzk5GJi2ZiwLbkEm6CehQ/exec';
+let fabOrders       = [];
+let fabLoggedIn     = false;
+let fabLoading      = false;
 
-function fabSave() {
-  try { localStorage.setItem(FAB_STORE_KEY, JSON.stringify(fabOrders)); } catch(e) {}
-}
-function fabLoad() {
+async function fabFetchOrders() {
   try {
-    const d = localStorage.getItem(FAB_STORE_KEY);
-    if (d) fabOrders = JSON.parse(d);
-  } catch(e) { fabOrders = []; }
+    const r = await fetch(SHEETS_URL + '?action=list');
+    const d = await r.json();
+    if (d.ok) { fabOrders = d.orders || []; updateBadge(); }
+  } catch(e) { console.warn('fabFetch error:', e); }
 }
 function fabStorePedido(orderData) {
-  fabLoad();
-  fabOrders.unshift(orderData);
-  fabSave();
+  // No-op: orders saved server-side via Google Sheets
   updateBadge();
 }
 function updateBadge() {
-  fabLoad();
-  const pending = fabOrders.filter(o=>o.status==='pending').length;
+  const pending = fabOrders.filter(o=>o.status==='Pendiente').length;
   const badge = document.getElementById('badge-count');
   if (pending > 0) { badge.textContent = pending; badge.classList.add('show'); }
   else { badge.classList.remove('show'); }
 }
 function openFactory() {
   document.getElementById('factory-overlay').classList.add('open');
-  if (fabLoggedIn) { fabLoad(); renderFabMain(); }
+  if (fabLoggedIn) { fabRefresh(); }
+}
+async function fabRefresh() {
+  document.getElementById('fab-orders-list').innerHTML = '<div class="empty-orders">Cargando pedidos…</div>';
+  await fabFetchOrders();
+  renderFabMain();
 }
 function closeFactory() {
   document.getElementById('factory-overlay').classList.remove('open');
 }
-function fabLogin() {
+async function fabLogin() {
   const pwd = document.getElementById('fab-pwd').value;
   if (pwd === FAB_PASSWORD) {
     fabLoggedIn = true;
     document.getElementById('fab-login').style.display = 'none';
     document.getElementById('fab-main').style.display = '';
-    fabLoad(); renderFabMain();
+    document.getElementById('fab-orders-list').innerHTML = '<div class="empty-orders">Cargando pedidos…</div>';
+    await fabFetchOrders();
+    renderFabMain();
   } else {
     document.getElementById('fab-err').textContent = 'Contraseña incorrecta.';
     document.getElementById('fab-pwd').value = '';
   }
 }
-function fabShowTab(tab) {
+async function fabShowTab(tab) {
   const isList = tab==='list';
   document.getElementById('fab-panel-list').style.display = isList?'':'none';
   document.getElementById('fab-panel-stats').style.display = isList?'none':'';
   document.getElementById('ftab-list').classList.toggle('active', isList);
   document.getElementById('ftab-stats').classList.toggle('active', !isList);
-  if (!isList) renderFabStats();
+  if (isList) { await fabFetchOrders(); renderFabMain(); }
+  else renderFabStats();
 }
 function statusLabel(s) {
-  if (s==='ready') return '<span class="order-status status-ready">✓ Preparado</span>';
-  if (s==='sent') return '<span class="order-status status-sent">🚚 Enviado</span>';
+  if (s==='Preparado') return '<span class="order-status status-ready">✓ Preparado</span>';
+  if (s==='Enviado')   return '<span class="order-status status-sent">🚚 Enviado</span>';
   return '<span class="order-status status-pending">⏳ Pendiente</span>';
 }
 function renderFabMain() {
@@ -1351,8 +1329,9 @@ function renderFabMain() {
     el.innerHTML = '<div class="empty-orders">No hay pedidos recibidos todavía.</div>'; return;
   }
   el.innerHTML = fabOrders.map((o,i) => {
-    const tot = o.total > 0 ? o.total.toFixed(2)+' €' : '—';
-    const fStr = o.fecha ? new Date(o.fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'}) : '—';
+    const tot = o.total > 0 ? parseFloat(o.total).toFixed(2)+' €' : '—';
+    const fechaRaw = o.fecha || o.fecha_servicio || '';
+    const fStr = fechaRaw ? (() => { try { const p=fechaRaw.split('-'); return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'}); } catch(e){ return fechaRaw; }})() : '—';
     return `<div class="order-card" onclick="fabShowDetail(${i})">
       <div class="order-card-top">
         <span class="order-heladeria">${o.heladeria}</span>
@@ -1388,11 +1367,11 @@ function fabShowDetail(idx) {
   }
   itemsHtml += `<div class="r-total"><span>Total (sin IVA)</span><span>${o.total>0?o.total.toFixed(2)+' €':'—'}</span></div>`;
   const obsHtml = o.obs ? `<div class="nota" style="margin-top:12px;">💬 ${o.obs}</div>` : '';
-  const statusBtns = o.status==='sent' ? '' :
-    o.status==='ready'
-      ? `<button class="fab-btn fab-btn-sent" onclick="fabSetStatus(${idx},'sent')">🚚 Marcar enviado</button>`
-      : `<button class="fab-btn fab-btn-ready" onclick="fabSetStatus(${idx},'ready')">✓ Marcar preparado</button>
-         <button class="fab-btn fab-btn-sent" onclick="fabSetStatus(${idx},'sent')">🚚 Marcar enviado</button>`;
+  const statusBtns = o.status==='Enviado' ? '' :
+    o.status==='Preparado'
+      ? `<button class="fab-btn fab-btn-sent" onclick="fabSetStatus(${idx},'Enviado')">🚚 Marcar enviado</button>`
+      : `<button class="fab-btn fab-btn-ready" onclick="fabSetStatus(${idx},'Preparado')">✓ Marcar preparado</button>
+         <button class="fab-btn fab-btn-sent" onclick="fabSetStatus(${idx},'Enviado')">🚚 Marcar enviado</button>`;
   document.getElementById('fab-detail').innerHTML = `
     <div class="detail-back" onclick="fabBackToList()">← Volver a pedidos</div>
     <div class="detail-info-strip">
@@ -1410,14 +1389,23 @@ function fabShowDetail(idx) {
   `;
   document.getElementById('fab-detail').style.display = '';
 }
-function fabBackToList() {
+async function fabBackToList() {
   document.getElementById('fab-detail').style.display = 'none';
   document.getElementById('fab-main').style.display = '';
+  await fabFetchOrders();
   renderFabMain();
 }
-function fabSetStatus(idx, status) {
+async function fabSetStatus(idx, status) {
+  const order = fabOrders[idx];
+  try {
+    await fetch('https://script.google.com/macros/s/AKfycby7rOiUcG1VIh62W1ro0D5XYtzPy3u1WayRv_Hp3KH1yxVbGXzk5GJi2ZiwLbkEm6CehQ/exec', {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action:'status', id: order.id, status: status })
+    });
+  } catch(e) { console.warn('Status update error:', e); }
   fabOrders[idx].status = status;
-  fabSave();
   updateBadge();
   fabShowDetail(idx);
 }
@@ -1498,8 +1486,8 @@ const fabStyle = document.createElement('style');
 fabStyle.textContent = `.stat-box{background:var(--gray);border-radius:12px;padding:14px;}.stat-lbl{font-size:12px;color:var(--text-mid);margin-bottom:4px;font-weight:500;}.stat-val{font-family:"Barlow Condensed",sans-serif;font-size:28px;font-weight:900;color:var(--navy);}`;
 document.head.appendChild(fabStyle);
 
-// Init
-fabLoad(); updateBadge();
+// Init — fetch badge count on load
+fabFetchOrders();
 
 </script>
 
