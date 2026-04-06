@@ -1087,22 +1087,24 @@ async function sendOrder() {
   const helNom = heladeria.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
   downloadCSV(csvContent, `Pedido_Cassata_${helNom}_${fechaStr}.csv`);
 
-  // Send to Google Sheets (handles email + ntfy automatically)
+  // Send to Google Sheets via form POST (no-cors compatible)
   try {
-    await fetch('https://script.google.com/macros/s/AKfycby7rOiUcG1VIh62W1ro0D5XYtzPy3u1WayRv_Hp3KH1yxVbGXzk5GJi2ZiwLbkEm6CehQ/exec', {
+    const payload = JSON.stringify({
+      action:         'save',
+      heladeria:      heladeria,
+      contacto:       contacto || '',
+      telefono:       telefono || '',
+      fecha_servicio: fecha,
+      observaciones:  obs || '',
+      total:          getTotal(),
+      items:          getItems().map(([key,v])=>({key, qty:v.qty, price:v.price})),
+    });
+    const fd = new FormData();
+    fd.append('data', payload);
+    await fetch('https://script.google.com/macros/s/AKfycbzK_jCosoINzPEN4MAL6pR1EfhjwvuvMJRl7FeJ5ScVi1Z-Kt8rF63tEQJ00yNcEz_vFg/exec', {
       method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        action:          'save',
-        heladeria:       heladeria,
-        contacto:        contacto || '',
-        telefono:        telefono || '',
-        fecha_servicio:  fecha,
-        observaciones:   obs || '',
-        total:           getTotal(),
-        items:           getItems().map(([key,v])=>({key, qty:v.qty, price:v.price})),
-      })
+      mode:   'no-cors',
+      body:   fd,
     });
   } catch(e) {
     console.warn('Error Google Sheets:', e);
@@ -1261,17 +1263,25 @@ buildAuxList();
 // FACTORY PANEL
 // ============================================================
 const FAB_PASSWORD  = 'cassata2025';
-const SHEETS_URL    = 'https://script.google.com/macros/s/AKfycby7rOiUcG1VIh62W1ro0D5XYtzPy3u1WayRv_Hp3KH1yxVbGXzk5GJi2ZiwLbkEm6CehQ/exec';
+const SHEETS_URL    = 'https://script.google.com/macros/s/AKfycbzK_jCosoINzPEN4MAL6pR1EfhjwvuvMJRl7FeJ5ScVi1Z-Kt8rF63tEQJ00yNcEz_vFg/exec';
 let fabOrders       = [];
 let fabLoggedIn     = false;
 let fabLoading      = false;
 
 async function fabFetchOrders() {
-  try {
-    const r = await fetch(SHEETS_URL + '?action=list');
-    const d = await r.json();
-    if (d.ok) { fabOrders = d.orders || []; updateBadge(); }
-  } catch(e) { console.warn('fabFetch error:', e); }
+  return new Promise((resolve) => {
+    const cbName = 'fabCb_' + Date.now();
+    const script = document.createElement('script');
+    window[cbName] = function(d) {
+      delete window[cbName];
+      document.body.removeChild(script);
+      if (d && d.ok) { fabOrders = d.orders || []; updateBadge(); }
+      resolve();
+    };
+    script.onerror = () => { delete window[cbName]; document.body.removeChild(script); resolve(); };
+    script.src = SHEETS_URL + '?action=list&callback=' + cbName;
+    document.body.appendChild(script);
+  });
 }
 function fabStorePedido(orderData) {
   // No-op: orders saved server-side via Google Sheets
@@ -1398,7 +1408,7 @@ async function fabBackToList() {
 async function fabSetStatus(idx, status) {
   const order = fabOrders[idx];
   try {
-    await fetch('https://script.google.com/macros/s/AKfycby7rOiUcG1VIh62W1ro0D5XYtzPy3u1WayRv_Hp3KH1yxVbGXzk5GJi2ZiwLbkEm6CehQ/exec', {
+    await fetch('https://script.google.com/macros/s/AKfycbzK_jCosoINzPEN4MAL6pR1EfhjwvuvMJRl7FeJ5ScVi1Z-Kt8rF63tEQJ00yNcEz_vFg/exec', {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
