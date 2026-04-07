@@ -425,7 +425,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 </div>
 
 <script>
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzK_jCosoINzPEN4MAL6pR1EfhjwvuvMJRl7FeJ5ScVi1Z-Kt8rF63tEQJ00yNcEz_vFg/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxaqL9ZkbQhYwOSqcW3n0u2aVb2GZRiE0GQZE89LlROIADeS3z5QzzizsRur50WQ7bx/exec';
 const FAB_PWD    = 'cassata2025';
 const MESES      = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const FESTIVOS   = new Set([
@@ -724,15 +724,20 @@ async function sendOrder(){
   const helNom=heladeria.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
   downloadCSV(csv,`Pedido_Cassata_${helNom}_${fecha.replace(/-/g,'')}.csv`);
 
-  // Send to Google Sheets (email + ntfy handled server-side)
+  // Send to Google Sheets via GET + Image() — works 100% on Safari iOS
   try{
-    const fd=new FormData();
-    fd.append('data', JSON.stringify({
+    const payload = {
       action:'save', heladeria, contacto, telefono,
       fecha_servicio:fecha, observaciones:obs,
       total, items:items.map(([key,v])=>({key,qty:v.qty,price:v.price}))
-    }));
-    await fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:fd});
+    };
+    const url = SCRIPT_URL + '?data=' + encodeURIComponent(JSON.stringify(payload));
+    await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = img.onerror = resolve;
+      img.src = url;
+      setTimeout(resolve, 8000);
+    });
   }catch(e){console.warn('Sheet error:',e);}
 
   // Show success
