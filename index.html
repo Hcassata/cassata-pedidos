@@ -724,20 +724,38 @@ async function sendOrder(){
   const helNom=heladeria.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
   downloadCSV(csv,`Pedido_Cassata_${helNom}_${fecha.replace(/-/g,'')}.csv`);
 
-  // Send to Google Sheets via GET + Image() — works 100% on Safari iOS
+  // Send to Google Sheets — split into two requests to avoid URL length limit on Safari
   try{
-    const payload = {
+    // Request 1: basic order data (no items)
+    const basic = {
       action:'save', heladeria, contacto, telefono,
-      fecha_servicio:fecha, observaciones:obs,
-      total, items:items.map(([key,v])=>({key,qty:v.qty,price:v.price}))
+      fecha_servicio:fecha, observaciones:obs, total,
+      items:[] // items sent separately
     };
-    const url = SCRIPT_URL + '?data=' + encodeURIComponent(JSON.stringify(payload));
-    await new Promise((resolve) => {
+    const url1 = SCRIPT_URL + '?data=' + encodeURIComponent(JSON.stringify(basic));
+    const id = await new Promise((resolve) => {
       const img = new Image();
-      img.onload = img.onerror = resolve;
-      img.src = url;
-      setTimeout(resolve, 8000);
+      img.onload = img.onerror = () => resolve(null);
+      img.src = url1;
+      setTimeout(() => resolve(null), 8000);
     });
+    // Request 2: update with items using JSONP
+    if(items.length > 0){
+      const itemPayload = {
+        action:'update_items',
+        heladeria, fecha_servicio:fecha,
+        items:items.map(([key,v])=>({key,qty:v.qty,price:v.price}))
+      };
+      await new Promise((resolve) => {
+        const cb = '_cbItems'+Date.now();
+        const s = document.createElement('script');
+        window[cb] = function(){ delete window[cb]; s.remove(); resolve(); };
+        s.onerror = () => { delete window[cb]; s.remove(); resolve(); };
+        s.src = SCRIPT_URL+'?callback='+cb+'&data='+encodeURIComponent(JSON.stringify(itemPayload));
+        document.body.appendChild(s);
+        setTimeout(() => { delete window[cb]; s.remove(); resolve(); }, 8000);
+      });
+    }
   }catch(e){console.warn('Sheet error:',e);}
 
   // Show success
