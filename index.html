@@ -720,12 +720,8 @@ async function sendOrder(){
   const items=getItems();
   const total=getTotal();
 
-  // Download CSV
-  const csv=generateCSV(items,heladeria,contacto,telefono,fecha,obs);
-  const helNom=heladeria.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
-  downloadCSV(csv,`Pedido_Cassata_${helNom}_${fecha.replace(/-/g,'')}.csv`);
-
-  // Send to Google Sheets — try multiple methods for maximum compatibility
+  // Send to Google Sheets FIRST — before anything else
+  // CSV download AFTER so it doesn't interrupt the sheet send
   const orderPayload = {
     action:'save', heladeria, contacto, telefono,
     fecha_servicio:fecha, observaciones:obs, total,
@@ -761,6 +757,14 @@ async function sendOrder(){
       xhr.send();
     } catch(e) {}
   }
+
+  // Wait a moment to ensure sheet request is sent before CSV download interrupts
+  await new Promise(r => setTimeout(r, 1500));
+
+  // NOW download CSV (after sheet is already sent)
+  const csv=generateCSV(items,heladeria,contacto,telefono,fecha,obs);
+  const helNom=heladeria.replace(/[^a-zA-Z0-9-]/g,'-');
+  downloadCSV(csv,`Pedido_Cassata_${helNom}_${fecha.replace(/-/g,'')}.csv`);
 
   // Show success
   document.getElementById('success-resumen').innerHTML=document.getElementById('resumen-card').innerHTML;
