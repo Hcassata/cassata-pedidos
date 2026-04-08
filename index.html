@@ -425,6 +425,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 </div>
 
 <script>
+window._noop = function(){};
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw6Eqg7zqSlIBAaM0FEz1sQ3b_750QV0fpaQiWe-rRIhT7vwrfLFsDg62UjwIuiY1pm4w/exec';
 const FAB_PWD    = 'cassata2025';
 const MESES      = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -724,21 +725,42 @@ async function sendOrder(){
   const helNom=heladeria.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
   downloadCSV(csv,`Pedido_Cassata_${helNom}_${fecha.replace(/-/g,'')}.csv`);
 
-  // Send to Google Sheets via JSONP (works on ALL browsers including Safari iOS)
-  await new Promise((resolve) => {
-    const payload = {
-      action:'save', heladeria, contacto, telefono,
-      fecha_servicio:fecha, observaciones:obs, total,
-      items:items.map(([key,v])=>({key,qty:v.qty,price:v.price}))
-    };
-    const cb = '_cb'+Date.now();
-    const s = document.createElement('script');
-    window[cb] = function(d){ delete window[cb]; s.remove(); resolve(d); };
-    s.onerror = () => { delete window[cb]; s.remove(); resolve(null); };
-    s.src = SCRIPT_URL + '?callback=' + cb + '&data=' + encodeURIComponent(JSON.stringify(payload));
-    document.body.appendChild(s);
-    setTimeout(() => { if(window[cb]){ delete window[cb]; s.remove(); resolve(null); } }, 12000);
-  });
+  // Send to Google Sheets — try multiple methods for maximum compatibility
+  const orderPayload = {
+    action:'save', heladeria, contacto, telefono,
+    fecha_servicio:fecha, observaciones:obs, total,
+    items:items.map(([key,v])=>({key,qty:v.qty,price:v.price}))
+  };
+  const encodedData = encodeURIComponent(JSON.stringify(orderPayload));
+  const fullUrl = SCRIPT_URL + '?callback=_noop&data=' + encodedData;
+
+  // Method 1: fetch with no-cors (works on desktop Chrome/Firefox)
+  let sent = false;
+  try {
+    await fetch(fullUrl, {mode:'no-cors'});
+    sent = true;
+  } catch(e) {}
+
+  // Method 2: JSONP via script tag (works on Safari iOS)
+  if(!sent) {
+    await new Promise((resolve) => {
+      window._noop = function(){ resolve(); };
+      const s = document.createElement('script');
+      s.src = fullUrl;
+      s.onload = s.onerror = resolve;
+      document.head.appendChild(s);
+      setTimeout(resolve, 10000);
+    });
+  }
+
+  // Method 3: XHR as last resort
+  if(!sent) {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', fullUrl, true);
+      xhr.send();
+    } catch(e) {}
+  }
 
   // Show success
   document.getElementById('success-resumen').innerHTML=document.getElementById('resumen-card').innerHTML;
