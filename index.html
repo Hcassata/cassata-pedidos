@@ -481,104 +481,8 @@ function selectDate(iso,d){
 document.getElementById('cal-overlay').addEventListener('click',function(e){ if(e.target===this) closeCal(); });
 
 // ── PRODUCTS DATA ─────────────────────────────────────────────
-const PRODUCTOS=[
-  { cat:'🍦 Helados artesanos', items:[
-    {n:'Avellana del Piemonte D.O.P',p55:43.77,p25:22.89},
-    {n:'Brownie de Chocolate con nueces',p55:48.60,p25:25.30},
-    {n:'Café Arabigo 100%',p55:33.41,p25:17.71},
-    {n:'Carrot Cake',p55:45.11,p25:23.56},
-    {n:'Cassata Italiana',p55:46.23,p25:24.12},
-    {n:'Cheesecake con fresitas silvestres',p55:44.02,p25:23.01},
-    {n:'Chocolate',p55:35.31,p25:18.66},
-    {n:'Chocolate blanco',p55:47.93,p25:24.97},
-    {n:'Chocolate fondant 84%',p55:44.20,p25:23.10},
-    {n:'Chocomenta',p55:37.54,p25:19.77},
-    {n:'Coco',p55:33.66,p25:17.83},
-    {n:'Crema Catalana Tostada',p55:35.27,p25:18.64},
-    {n:'Dulce de leche Argentino',p55:40.81,p25:21.41},
-    {n:'Fresa con 45% de fresa',p55:37.00,p25:19.50},
-    {n:'Galleta Lotus',p55:39.44,p25:20.72},
-    {n:'Happy Hippo',p55:42.44,p25:22.22},
-    {n:'Kinder Bueno',p55:44.54,p25:23.27},
-    {n:'Leche Merengada',p55:30.17,p25:16.09},
-    {n:'Mantecado del Abuelo',p55:31.64,p25:16.82},
-    {n:'Nata',p55:30.94,p25:16.47},
-    {n:'Nata nueces',p55:40.21,p25:21.11},
-    {n:'Nutella',p55:41.46,p25:21.73},
-    {n:'Oreo',p55:36.54,p25:19.27},
-    {n:'Pasas al Moscatel',p55:38.33,p25:20.17},
-    {n:'Pistacho della Sicilia (DOP Bronte)',p55:51.29,p25:26.65},
-    {n:'Plátano de Canarias con Toffe',p55:41.25,p25:21.63},
-    {n:'Roche',p55:44.90,p25:23.45},
-    {n:'Sorbete Frambuesa',p55:46.45,p25:24.23},
-    {n:'Sorbete Limón Murciano',p55:32.45,p25:17.23},
-    {n:'Sorbete Mandarina',p55:42.90,p25:22.45},
-    {n:'Sorbete Mango Pasión',p55:44.24,p25:23.12},
-    {n:'Straciatella',p55:39.90,p25:20.95},
-    {n:'Strudel de Manzana',p55:39.65,p25:20.83},
-    {n:'Trufa',p55:37.50,p25:19.75},
-    {n:'Turrón de Jijona Artesanía 70%',p55:49.90,p25:25.95},
-    {n:'Turrón sin azúcar',p55:49.90,p25:25.95},
-    {n:'Tutti Frutti',p55:37.50,p25:19.75},
-    {n:'Vainilla cookies',p55:44.45,p25:23.23},
-    {n:'Vainilla de Bourbon de Madagascar',p55:43.65,p25:22.83},
-    {n:'Vainilla sin azúcar',p55:36.92,p25:19.46},
-    {n:'Yogurt Griego',p55:35.15,p25:18.58},
-  ]},
-  { cat:'🧊 Granizados', items:[
-    {n:'Granizado Agua Limón',p55:3.30,unit:'L'},
-    {n:'Granizado Horchata de chufa',p55:3.30,unit:'L'},
-    {n:'Granizado Fresa',p55:3.30,unit:'L'},
-    {n:'Granizado Agua cebada',p55:3.30,unit:'L'},
-    {n:'Granizado Leche Preparada',p55:3.30,unit:'L'},
-    {n:'Granizado Café Arábigo',p55:3.80,unit:'L'},
-    {n:'Granizado Mojito',p55:4.00,unit:'L'},
-  ]},
-  { cat:'🍡 Paletas de fruta', items:[
-    {n:'Paleta Naranja valenciana con AOVE',p55:1.10,unit:'ud'},
-    {n:'Paleta Limón murciano',p55:1.10,unit:'ud'},
-    {n:'Paleta Fresa origen Huelva',p55:1.10,unit:'ud'},
-    {n:'Paleta Coco bañada en chocolate',p55:1.10,unit:'ud'},
-    {n:'Paleta Horchata valenciana',p55:1.10,unit:'ud'},
-    {n:'Paleta Mango natural variedad Alphonso',p55:1.10,unit:'ud'},
-  ]},
-];
-const AUX=[
-  { cat:'🍦 Barquillos y conos', items:[
-    {n:'Barquillo Artesano 45 CX350',p:49.75},{n:'Barquillo Artesano 55 CX200',p:36.13},
-    {n:'Barquillo Artesano 60 CX200',p:34.09},{n:'Cono Simple Nº3 CX360',p:28.35},
-    {n:'Cono Boca Doble CX304',p:38.08},{n:'Barquillo Danés Medio 100 CX162',p:29.64},
-    {n:'Galleta Snapy Cassata CX1000',p:31.36},{n:'Fundas para Conos Impresas CX8640',p:253.88},
-  ]},
-  { cat:'🥤 Vasos, tapas y tarrinas', items:[
-    {n:'Vaso Cassata BIO 250 x 2000',p:168.11},{n:'Vaso Cassata BIO 370 x 1600',p:154.04},
-    {n:'Vaso Cassata BIO 500 CX960',p:117.41},{n:'Tapa Vaso Cassata 250 x 1000',p:34.50},
-    {n:'Tapa Vaso Cassata 37C x 1000',p:39.41},{n:'Tapa Vaso Cassata 50C x 1000',p:31.95},
-    {n:'Tarrina Cassata 80 BIO CX2250',p:130.54},{n:'Tarrina Cassata 160 BIO CX1400',p:112.00},
-    {n:'Tarrina Cassata 230 BIO CX1400',p:122.21},{n:'Tapas Tarrina 80/120 x 1000',p:53.34},
-    {n:'Tapas Tarrina 160/230 x 1000',p:47.04},{n:'Porex Corcho 1/2 Litro x104',p:65.13},
-    {n:'Porex Corcho 1 Litro x66',p:51.87},
-  ]},
-  { cat:'🍴 Cubiertos y servilletas', items:[
-    {n:'Servilletas Papel Cassata (caja)',p:49.65},{n:'Cuchara Aut Inox N45',p:26.72},
-    {n:'Cuchara Aut Inox N50',p:26.72},{n:'Cuchara Aut Inox N60',p:26.72},
-    {n:'Canutillo Cartón 8x23 x500',p:7.80},{n:'Cucharita Cartón 95mm Cassata x2000',p:72.00},
-    {n:'Paleta Inox Mango Transparente',p:5.31},
-  ]},
-  { cat:'☕ Café y azúcar', items:[
-    {n:'Café Arábico 100% Grano 1 kg',p:21.50},{n:'Café Arábico 100% Decaf Grano 1 kg',p:21.50},
-    {n:'Azúcar Blanco 1000x7gr (caja)',p:24.55},
-  ]},
-  { cat:'👕 Uniformidad', items:[
-    {n:'Chaquetilla Cassata Verano Sra',p:26.31},{n:'Chaquetilla Cassata Verano Cro',p:0},
-    {n:'Chaquetilla Larga Cassata Sra',p:42.33},{n:'Chaquetilla Larga Cassata Cro',p:42.33},
-    {n:'Delantal Cassata 3B',p:9.69},{n:'Gorra Cassata',p:13.81},
-  ]},
-  { cat:'🎨 Material de imagen', items:[
-    {n:'Soporte Metacrilato Pincho Sabores x24',p:26.00},
-    {n:'Pegatinas Sabores Pincho (juego completo)',p:16.00},
-  ]},
-];
+const PRODUCTOS = [];
+const AUX = [];
 
 // ── QTY STATE ─────────────────────────────────────────────────
 let qtys={};
@@ -1111,7 +1015,9 @@ if(isIOS&&!isStandalone&&!localStorage.getItem('ios-hint-dismissed')){{
 }}
 
 // ── INIT ──────────────────────────────────────────────────────
-buildAll();
+// Show loading while sheet loads
+document.getElementById('product-list').innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-light);font-size:14px;">⏳ Cargando productos…</div>';
+document.getElementById('aux-list').innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-light);font-size:14px;">⏳ Cargando productos…</div>';
 fabFetch().then(updateBadge);
 
 // ── LOAD PRODUCTS FROM GOOGLE SHEETS ──────────────────────────
@@ -1172,8 +1078,14 @@ async function loadFromSheet() {
   }
   if (newP.length) { PRODUCTOS.length = 0; newP.forEach(c => PRODUCTOS.push(c)); }
   if (newA.length) { AUX.length = 0; newA.forEach(c => AUX.push(c)); }
-  // Always rebuild even if only some tabs loaded
+  // Rebuild and refresh current visible panel
   buildAll();
+  // Reset qty counters to 0 for new product list
+  qtys = {};
+  // Refresh whichever tab is currently visible
+  const helPanel = document.getElementById('panel-helados');
+  if (helPanel && helPanel.style.display !== 'none') switchTab('helados');
+  else switchTab('aux');
   console.log('Sheet cargado — Helados:', PRODUCTOS[0]&&PRODUCTOS[0].items.length, 'productos');
 }
 
@@ -1186,7 +1098,7 @@ async function initSheet() {
     console.warn('Sheet error:', err);
   }
 }
-setTimeout(initSheet, 300);
+initSheet();
 </script>
 </body>
 </html>
