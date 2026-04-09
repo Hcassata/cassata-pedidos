@@ -219,6 +219,10 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 .login-wrap p{font-size:14px;color:var(--text-mid);margin-bottom:20px;}
 .login-err{color:#C0392B;font-size:13px;margin-top:8px;}
 
+/* PIN SCREEN */
+#s0 .card { max-width: 360px; margin: 0 auto; }
+#pin-dots div { border-radius: 50% !important; aspect-ratio: 1; }
+
 /* PWA install */
 .pwa-btn{position:fixed;bottom:90px;left:16px;z-index:150;background:var(--gold);color:var(--navy);border:none;border-radius:24px;padding:10px 16px;font-family:"Barlow Condensed",sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;display:none;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(27,45,107,.25);-webkit-tap-highlight-color:transparent;}
 .ios-hint{display:none;position:fixed;bottom:90px;left:12px;right:72px;z-index:150;background:var(--navy);color:#fff;border-radius:14px;padding:12px 16px;font-size:13px;align-items:flex-start;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.3);}
@@ -239,7 +243,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 </div>
 
 <!-- STEPS -->
-<div class="steps-wrap">
+<div class="steps-wrap" id="steps-wrap" style="display:none;">
   <div class="steps-bar">
     <div class="step-item active" id="sdot-1"><div class="step-circle">1</div><div class="step-label">Datos</div></div>
     <div class="step-item" id="sdot-2"><div class="step-circle">2</div><div class="step-label">Productos</div></div>
@@ -249,8 +253,32 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 
 <div class="main">
 
+<!-- S0: LOGIN PIN -->
+<div class="screen active" id="s0">
+  <div style="text-align:center;padding:32px 0 20px;">
+    <div style="width:80px;height:80px;background:var(--navy);border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:36px;">🔐</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--navy);">Acceso franquicia</div>
+    <div style="font-size:14px;color:var(--text-mid);margin-top:6px;">Introduce tu PIN de 4 dígitos</div>
+  </div>
+  <div class="card">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;" id="pin-dots">
+      <div id="pd0" style="height:12px;border-radius:50%;background:var(--gray);transition:background .2s;"></div>
+      <div id="pd1" style="height:12px;border-radius:50%;background:var(--gray);transition:background .2s;"></div>
+      <div id="pd2" style="height:12px;border-radius:50%;background:var(--gray);transition:background .2s;"></div>
+      <div id="pd3" style="height:12px;border-radius:50%;background:var(--gray);transition:background .2s;"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+      ${[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map(n=>`
+        <button onclick="pinPress('${n}')" style="padding:18px;border-radius:14px;border:1.5px solid var(--border);background:${n===''?'transparent':'var(--white)'};font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:var(--navy);cursor:${n===''?'default':'pointer'};-webkit-tap-highlight-color:transparent;touch-action:manipulation;" ${n===''?'disabled':''}>
+          ${n}
+        </button>`).join('')}
+    </div>
+    <div id="pin-error" style="text-align:center;color:#E24B4A;font-size:13px;font-weight:600;margin-top:12px;min-height:20px;"></div>
+  </div>
+</div>
+
 <!-- S1: DATOS -->
-<div class="screen active" id="s1">
+<div class="screen" id="s1">
   <p class="sec-title">¿Quién hace el pedido?</p>
   <p class="sec-sub">Introduce los datos de tu heladería y la fecha de entrega.</p>
   <div class="card">
@@ -336,14 +364,15 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
       <div class="card-title">Resumen</div>
       <div id="success-resumen"></div>
     </div>
-    <button class="new-order-btn" onclick="resetApp()">Nuevo pedido</button>
+    <button class="new-order-btn" onclick="showHistorial()" style="background:var(--gray);color:var(--navy);margin-right:10px;">Ver mis pedidos</button>
+      <button class="new-order-btn" onclick="resetApp()">Nuevo pedido</button>
   </div>
 </div>
 
 </div><!-- /main -->
 
 <!-- BOTTOM BAR -->
-<div class="bottom-bar" id="bottom-bar">
+<div class="bottom-bar" id="bottom-bar" style="display:none">
   <button class="btn btn-back" id="btn-back" style="display:none" onclick="prevStep()">← Atrás</button>
   <button class="btn btn-next" id="btn-next" onclick="nextStep()">Continuar →</button>
 </div>
@@ -415,9 +444,11 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
         <div class="fab-tab-row">
           <button class="fab-tab active" id="ftab-list" onclick="fabTab('list')">📋 Pedidos</button>
           <button class="fab-tab" id="ftab-stats" onclick="fabTab('stats')">📊 Resumen</button>
+          <button class="fab-tab" id="ftab-franq" onclick="fabTab('franq')">🏪 Franquicias</button>
         </div>
         <div id="fab-panel-list"><div class="empty-msg">Cargando pedidos…</div></div>
         <div id="fab-panel-stats" style="display:none"></div>
+        <div id="fab-panel-franq" style="display:none"></div>
       </div>
       <div id="fab-detail" style="display:none"></div>
     </div>
@@ -426,6 +457,29 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 
 <script>
 window._noop = function(){};
+
+const FRANQUICIAS = {
+  '1100': { nombre: 'Cassata Elda',         email: '', telefono: '' },
+  '4400': { nombre: 'Cassata Villena',       email: '', telefono: '' },
+  '3300': { nombre: 'Cassata Alicante PAU5', email: '', telefono: '' },
+  '5500': { nombre: 'Cassata Toledo',        email: '', telefono: '' },
+  '2200': { nombre: 'Cassata Petrer',        email: '', telefono: '' },
+  '0000': { nombre: 'Otra franquicia',       email: '', telefono: '' },
+};
+let currentFranquicia = null; // {pin, nombre, email, telefono}
+
+
+// ── FRANQUICIAS CONFIG ────────────────────────────────────────
+const FRANQUICIAS = [
+  {nombre:'Cassata Elda',        pin:'1100', email:'', telefono:''},
+  {nombre:'Cassata Villena',     pin:'4400', email:'', telefono:''},
+  {nombre:'Cassata Alicante PAU5',pin:'3300', email:'', telefono:''},
+  {nombre:'Cassata Toledo',      pin:'5500', email:'', telefono:''},
+  {nombre:'Cassata Petrer',      pin:'2200', email:'', telefono:''},
+  {nombre:'Otra franquicia',     pin:'0000', email:'', telefono:''},
+];
+let currentFranquicia = null; // logged-in franquicia
+
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw6Eqg7zqSlIBAaM0FEz1sQ3b_750QV0fpaQiWe-rRIhT7vwrfLFsDg62UjwIuiY1pm4w/exec';
 const FAB_PWD    = 'cassata2025';
 const MESES      = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -580,13 +634,14 @@ function nextStep(){
 }
 function prevStep(){
   if(step===2){ show('s2','s1'); step=1; document.getElementById('btn-back').style.display='none'; document.getElementById('btn-next').textContent='Continuar →'; document.getElementById('btn-next').className='btn btn-next'; }
+  else if(step===1){ show('s1','s0'); step=0; document.getElementById('steps-wrap').style.display='none'; document.getElementById('bottom-bar').style.display='none'; return; }
   else if(step===3){ show('s3','s2'); step=2; document.getElementById('btn-next').textContent='Ver resumen →'; document.getElementById('btn-next').className='btn btn-next'; }
   updateDots();
 }
 
 // ── RESUMEN ───────────────────────────────────────────────────
 function fillResumen(){
-  const hel=document.getElementById('heladeria').value;
+  const hel=currentFranquicia ? currentFranquicia.nombre : '';
   const fec=document.getElementById('fecha').value;
   const con=document.getElementById('contacto').value;
   document.getElementById('r-heladeria').textContent=hel;
@@ -624,7 +679,7 @@ function fillResumen(){
 async function sendOrder(){
   const btn=document.getElementById('btn-next');
   btn.textContent='Enviando…'; btn.disabled=true;
-  const heladeria=document.getElementById('heladeria').value;
+  const heladeria=currentFranquicia ? currentFranquicia.nombre : '';
   const fecha=document.getElementById('fecha').value;
   const contacto=document.getElementById('contacto').value;
   const telefono=document.getElementById('telefono').value;
@@ -816,15 +871,118 @@ function downloadCSV(content,filename){
 }
 
 // ── RESET ─────────────────────────────────────────────────────
+function checkPin() {
+  const pin = document.getElementById('pin-input').value.trim();
+  const franq = FRANQUICIAS[pin];
+  if (!franq) {
+    document.getElementById('pin-error').style.display = 'block';
+    document.getElementById('pin-input').value = '';
+    return;
+  }
+  document.getElementById('pin-error').style.display = 'none';
+  currentFranquicia = { pin, ...franq };
+  // Show historial
+  document.getElementById('historial-wrap').style.display = 'block';
+  document.getElementById('bottom-bar').style.display = 'none';
+  loadHistorial();
+}
+
+function goNewOrder() {
+  // Go to s1 with franquicia set
+  document.getElementById('franquicia-nombre-display').textContent = currentFranquicia.nombre;
+  document.getElementById('s0').classList.remove('active');
+  document.getElementById('s1').classList.add('active');
+  document.getElementById('steps-wrap').style.display = '';
+  document.getElementById('bottom-bar').style.display = '';
+  step = 1; updateDots();
+}
+
+async function loadHistorial() {
+  const el = document.getElementById('historial-list');
+  el.innerHTML = '<div class="empty-msg">Cargando pedidos…</div>';
+  await fabFetch();
+  const misPedidos = fabOrders.filter(o =>
+    o.heladeria === currentFranquicia.nombre
+  );
+  if (!misPedidos.length) {
+    el.innerHTML = '<div class="empty-msg" style="padding:20px 0">No tienes pedidos todavía.<br>Pulsa <strong>+ Nuevo pedido</strong> para empezar.</div>';
+    return;
+  }
+  el.innerHTML = misPedidos.map((o, i) => {
+    const statusCss = o.status==='Preparado'?'status-ready':o.status==='Enviado'?'status-sent':'status-pending';
+    const statusIcon = o.status==='Preparado'?'✓ Preparado':o.status==='Enviado'?'🚚 Enviado':'⏳ Pendiente';
+    return `<div class="order-card" onclick="showHistorialDetail('${o.id}')">
+      <div class="order-card-top">
+        <span class="order-heladeria">${fmtDate(o.fecha)}</span>
+        <span class="order-status ${statusCss}">${statusIcon}</span>
+      </div>
+      <div class="order-meta">Total: <strong>${o.total>0?parseFloat(o.total).toFixed(2)+' €':'—'}</strong> · ${(o.items||[]).length} productos</div>
+    </div>`;
+  }).join('');
+}
+
+function showHistorialDetail(id) {
+  const o = fabOrders.find(x => x.id === id);
+  if (!o) return;
+  // Reuse fab detail but from historial context
+  const helItems = (o.items||[]).filter(it=>!it.key.startsWith('AUX|'));
+  const auxItems = (o.items||[]).filter(it=>it.key.startsWith('AUX|'));
+  let ihtml = '';
+  if (helItems.length) {
+    ihtml += '<div class="cat-header" style="margin-bottom:6px"><span class="cat-icon">🍦</span><span class="cat-name">Helados, granizados y paletas</span></div>';
+    helItems.forEach(it => {
+      const [name,size] = it.key.split('|');
+      const sl = size==='55'?' · 5,5L':size==='25'?' · 2,5L':'';
+      ihtml += `<div class="r-line"><span class="r-name">${name}${sl}</span><span class="r-qty">×${it.qty}</span><span class="r-price">${(it.qty*it.price).toFixed(2)} €</span></div>`;
+    });
+  }
+  if (auxItems.length) {
+    ihtml += '<div class="cat-header" style="margin:10px 0 6px"><span class="cat-icon">📦</span><span class="cat-name">Auxiliares</span></div>';
+    auxItems.forEach(it => {
+      const name = it.key.replace('AUX|','');
+      ihtml += `<div class="r-line"><span class="r-name">${name}</span><span class="r-qty">×${it.qty}</span><span class="r-price">${it.price>0?(it.qty*it.price).toFixed(2)+' €':'—'}</span></div>`;
+    });
+  }
+  ihtml += `<div class="r-total"><span>Total (sin IVA)</span><span>${o.total>0?parseFloat(o.total).toFixed(2)+' €':'—'}</span></div>`;
+
+  // Show in a modal overlay
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(27,45,107,.5);z-index:400;display:flex;align-items:flex-end;justify-content:center;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:640px;max-height:85vh;overflow-y:auto;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--navy);">Pedido · ${fmtDate(o.fecha)}</div>
+        <button onclick="this.closest('[style*=fixed]').remove()" style="background:var(--gray);border:none;border-radius:8px;width:32px;height:32px;font-size:18px;cursor:pointer;">✕</button>
+      </div>
+      <div class="card" style="padding:16px 18px;margin-bottom:12px;">${ihtml}</div>
+      <button onclick="dlHistorialExcel('${o.id}')" class="fab-btn fab-btn-excel" style="width:100%;padding:12px;">📥 Descargar hoja de pedido</button>
+    </div>`;
+  modal.addEventListener('click', e => { if(e.target===modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+function dlHistorialExcel(id) {
+  const o = fabOrders.find(x => x.id === id);
+  if (!o) return;
+  const items = (o.items||[]).map(it => [it.key, {qty:it.qty, price:it.price}]);
+  const csv = generateCSV(items, o.heladeria, o.contacto, o.telefono, o.fecha, o.obs);
+  const helNom = (o.heladeria||'pedido').replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
+  downloadCSV(csv, `Pedido_${helNom}_${(o.fecha||'').replace(/-/g,'')}.html`);
+}
+
 function resetApp(){
   step=1; qtys={};
-  ['s1','s2','s3','s4'].forEach(s=>document.getElementById(s).classList.remove('active'));
-  document.getElementById('s1').classList.add('active');
+  ['s0','s1','s2','s3','s4'].forEach(s=>document.getElementById(s).classList.remove('active'));
+  // Go back to PIN screen
+  pinBuffer=''; updatePinDots();
+  currentFranquicia=null;
+  document.getElementById('heladeria').closest('.field').style.display='';
+  document.getElementById('s0').classList.add('active');
+  document.getElementById('bottom-bar').style.display='none';
   ['heladeria','contacto','telefono','obs'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fecha').value='';
   document.getElementById('cal-display-txt').textContent='Selecciona una fecha…';
   document.getElementById('cal-display-txt').style.color='var(--text-light)';
-  document.getElementById('bottom-bar').style.display='';
   document.getElementById('btn-back').style.display='none';
   document.getElementById('btn-next').textContent='Continuar →';
   document.getElementById('btn-next').className='btn btn-next';
@@ -834,6 +992,41 @@ function resetApp(){
 
 // ── FACTORY PANEL ─────────────────────────────────────────────
 let fabLoggedIn=false;
+
+async function showHistorial() {
+  if (!currentFranquicia) return;
+  // Show historial screen
+  ['s1','s2','s3','s4','s5'].forEach(s=>document.getElementById(s).classList.remove('active'));
+  document.getElementById('s5').classList.add('active');
+  document.getElementById('bottom-bar').style.display='none';
+  document.getElementById('historial-sub').textContent = 'Pedidos de ' + currentFranquicia.nombre;
+  document.getElementById('historial-list').innerHTML = '<div class="empty-msg">Cargando…</div>';
+  // Fetch orders from sheet
+  await fabFetch();
+  const myOrders = fabOrders.filter(o =>
+    o.heladeria && currentFranquicia &&
+    o.heladeria.toLowerCase() === currentFranquicia.nombre.toLowerCase()
+  );
+  if (!myOrders.length) {
+    document.getElementById('historial-list').innerHTML = '<div class="empty-msg">No tienes pedidos todavía.</div>';
+    return;
+  }
+  document.getElementById('historial-list').innerHTML = myOrders.map((o,i) => {
+    const tot = o.total>0 ? parseFloat(o.total).toFixed(2)+' €' : '—';
+    const statusLabel = o.status==='Preparado'
+      ? '<span class="order-status status-ready">✓ Preparado</span>'
+      : o.status==='Enviado'
+      ? '<span class="order-status status-sent">🚚 Enviado</span>'
+      : '<span class="order-status status-pending">⏳ Pendiente</span>';
+    return `<div class="order-card">
+      <div class="order-card-top">
+        <span class="order-fecha">📅 Entrega: <strong>${fmtDate(o.fecha)}</strong></span>
+        ${statusLabel}
+      </div>
+      <div class="order-meta">Pedido el ${o.createdAt||'—'} · Total: ${tot}</div>
+    </div>`;
+  }).join('');
+}
 let fabOrders=[];
 
 function openFab(){ document.getElementById('fab-overlay').classList.add('open'); if(fabLoggedIn) fabRefresh(); }
@@ -877,12 +1070,13 @@ function updateBadge(){
 }
 
 async function fabTab(t){
-  const isList=t==='list';
-  document.getElementById('fab-panel-list').style.display=isList?'':'none';
-  document.getElementById('fab-panel-stats').style.display=isList?'none':'';
-  document.getElementById('ftab-list').classList.toggle('active',isList);
-  document.getElementById('ftab-stats').classList.toggle('active',!isList);
-  if(isList){ await fabRefresh(); } else renderStats();
+  ['list','stats','franq'].forEach(tab=>{
+    document.getElementById('fab-panel-'+tab).style.display=t===tab?'':'none';
+    document.getElementById('ftab-'+tab).classList.toggle('active',t===tab);
+  });
+  if(t==='list') await fabRefresh();
+  else if(t==='stats') renderStats();
+  else if(t==='franq') renderFranquicias();
 }
 
 function statusLabel(s){
@@ -975,6 +1169,21 @@ function dlExcel(idx){
   downloadCSV(csv,`Produccion_Cassata_${helNom}_${(o.fecha||'').replace(/-/g,'')}.csv`);
 }
 
+function renderFranquicias() {
+  const el = document.getElementById('fab-panel-franq');
+  el.innerHTML = FRANQUICIAS.map(f => `
+    <div class="order-card">
+      <div class="order-card-top">
+        <span class="order-heladeria">${f.nombre}</span>
+        <span class="order-status status-pending" style="font-size:14px;letter-spacing:.1em;">PIN: ${f.pin}</span>
+      </div>
+      <div class="order-meta">
+        📧 ${f.email||'Sin email'} · 📞 ${f.telefono||'Sin teléfono'}
+      </div>
+    </div>
+  `).join('');
+}
+
 function renderStats(){
   if(!fabOrders.length){ document.getElementById('fab-panel-stats').innerHTML='<div class="empty-msg">Sin datos todavía.</div>'; return; }
   const total=fabOrders.reduce((s,o)=>s+(parseFloat(o.total)||0),0);
@@ -1013,6 +1222,51 @@ if(isIOS&&!isStandalone&&!localStorage.getItem('ios-hint-dismissed')){{
     document.getElementById('ios-hint').style.display='flex';
   }},2000);
 }}
+
+// ── PIN LOGIN ────────────────────────────────────────────────
+let pinBuffer = '';
+
+function pinPress(val) {
+  if (val === '') return;
+  if (val === '⌫') {
+    pinBuffer = pinBuffer.slice(0,-1);
+    updatePinDots();
+    return;
+  }
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += String(val);
+  updatePinDots();
+  if (pinBuffer.length === 4) checkPin();
+}
+
+function updatePinDots() {
+  for(let i=0;i<4;i++) {
+    const dot = document.getElementById('pd'+i);
+    dot.style.background = i < pinBuffer.length ? 'var(--navy)' : 'var(--gray)';
+    dot.style.transform = i < pinBuffer.length ? 'scale(1.2)' : 'scale(1)';
+  }
+}
+
+function checkPin() {
+  const match = FRANQUICIAS.find(f => f.pin === pinBuffer);
+  if (match) {
+    currentFranquicia = match;
+    // Pre-select heladeria
+    document.getElementById('heladeria').value = match.nombre;
+    // Hide heladeria selector since we know who they are
+    document.getElementById('heladeria').closest('.field').style.display = 'none';
+    // Go to main app
+    document.getElementById('s0').classList.remove('active');
+    document.getElementById('s1').classList.add('active');
+    document.getElementById('bottom-bar').style.display = '';
+    document.getElementById('btn-next').textContent = 'Continuar →';
+  } else {
+    document.getElementById('pin-error').textContent = 'PIN incorrecto. Inténtalo de nuevo.';
+    pinBuffer = '';
+    updatePinDots();
+    setTimeout(()=>{ document.getElementById('pin-error').textContent=''; }, 2000);
+  }
+}
 
 // ── INIT ──────────────────────────────────────────────────────
 // Show loading while sheet loads
