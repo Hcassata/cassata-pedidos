@@ -1089,9 +1089,12 @@ const SHEET_TABS = [
 
 async function fetchTab(tabName) {
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     const url = 'https://docs.google.com/spreadsheets/d/' + PRODUCTS_SHEET_ID
               + '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(tabName);
-    const r = await fetch(url);
+    const r = await fetch(url, {signal: controller.signal});
+    clearTimeout(timeout);
     if (!r.ok) return null;
     const text = await r.text();
     return text.trim().split('\n').slice(1).map(row => {
@@ -1120,13 +1123,13 @@ async function loadFromSheet() {
   } catch(e) { console.warn('Usando precios hardcodeados'); }
 }
 
-// Build immediately with hardcoded data so app works right away
+// Init with hardcoded products immediately
 buildAll();
-// Then try to update from sheet in background (non-blocking)
-setTimeout(() => {
-  loadFromSheet().catch(() => {});
+// Load from sheet in background after 2 seconds (only if sheet is public)
+setTimeout(function() {
+  loadFromSheet().catch(function(){});
   fabFetch().then(updateBadge);
-}, 100);
+}, 2000);
 </script>
 </body>
 </html>
