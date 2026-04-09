@@ -1084,7 +1084,7 @@ const SHEET_TABS = [
   {name:'Desechables',twoPrice:false,icon:'🥤',aux:true},
   {name:'Cafe y azucar',twoPrice:false,icon:'☕',aux:true},
   {name:'Uniformidad',twoPrice:false,icon:'👕',aux:true},
-  {name:'Material imagen',twoPrice:false,icon:'🎨',aux:true},
+  {name:'Material Imagen',twoPrice:false,icon:'🎨',aux:true},
 ];
 
 async function fetchTab(tabName) {
@@ -1115,13 +1115,18 @@ async function loadFromSheet() {
     }
     if (newP.length) { PRODUCTOS.length=0; newP.forEach(c=>PRODUCTOS.push(c)); }
     if (newA.length) { AUX.length=0; newA.forEach(c=>AUX.push(c)); }
+    buildAll(); // Rebuild with updated prices from sheet
     console.log('Productos cargados del Sheet ✓');
   } catch(e) { console.warn('Usando precios hardcodeados'); }
-  buildAll();
 }
 
-loadFromSheet();
-fabFetch().then(updateBadge);
+// Build immediately with hardcoded data so app works right away
+buildAll();
+// Then try to update from sheet in background (non-blocking)
+setTimeout(() => {
+  loadFromSheet().catch(() => {});
+  fabFetch().then(updateBadge);
+}, 100);
 </script>
 </body>
 </html>
