@@ -653,14 +653,10 @@ function buildList(cats, containerId){
     cat.items.forEach(item=>{
       if(item.p55!==undefined && item.p25!==undefined && !item.unit){
         const k55=item.n+'|55', k25=item.n+'|25';
-        html+=`<div class="product-row">
-          <span class="product-name">${item.n}</span>
-          <div class="size-group">
-            <div class="size-row"><span class="size-tag">5,5L · ${item.p55?item.p55.toFixed(2)+'€':'—'}</span>
-              <div class="qty-control"><button class="qty-btn" onclick="chg('${k55}',-1,${item.p55||0})">−</button><span class="qty-num" id="${safeId(k55)}">0</span><button class="qty-btn plus" onclick="chg('${k55}',1,${item.p55||0})">+</button></div></div>
-            <div class="size-row"><span class="size-tag">2,5L · ${item.p25?item.p25.toFixed(2)+'€':'—'}</span>
-              <div class="qty-control"><button class="qty-btn" onclick="chg('${k25}',-1,${item.p25||0})">−</button><span class="qty-num" id="${safeId(k25)}">0</span><button class="qty-btn plus" onclick="chg('${k25}',1,${item.p25||0})">+</button></div></div>
-          </div></div>`;
+        const f1=item.fmt1||'5,5L', f2=item.fmt2||'2,5L';
+        const show25 = item.p25 && item.p25 > 0;
+        const row25 = show25 ? `<div class="size-row"><span class="size-tag">${f2} · ${item.p25.toFixed(2)}€</span><div class="qty-control"><button class="qty-btn" onclick="chg('${k25}',-1,${item.p25})">−</button><span class="qty-num" id="${safeId(k25)}">0</span><button class="qty-btn plus" onclick="chg('${k25}',1,${item.p25})">+</button></div></div>` : '';
+        html+=`<div class="product-row"><span class="product-name">${item.n}</span><div class="size-group"><div class="size-row"><span class="size-tag">${f1} · ${item.p55?item.p55.toFixed(2)+'€':'—'}</span><div class="qty-control"><button class="qty-btn" onclick="chg('${k55}',-1,${item.p55||0})">−</button><span class="qty-num" id="${safeId(k55)}">0</span><button class="qty-btn plus" onclick="chg('${k55}',1,${item.p55||0})">+</button></div></div>${row25}</div></div>`;
       } else {
         const key=(containerId==='aux-list'?'AUX|':'')+item.n+(item.unit?'|55':'|55');
         const pr=item.p55||item.p||0;
