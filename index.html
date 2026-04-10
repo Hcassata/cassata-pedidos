@@ -753,23 +753,48 @@ async function sendOrder(){
   const items=getItems();
   const total=getTotal();
 
-  // Send to Google Sheets via fetch POST (no size limit)
-  try {
-    await fetch('https://script.google.com/macros/s/AKfycbz-wykdfy_EvahnPGunLlykdRjrXmp8Mv1sn1tecs2r4i5EaOhTR1axyrvSbahH0r0_dQ/exec', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        action: 'save',
-        heladeria: heladeria,
-        contacto: contacto,
-        telefono: telefono,
-        fecha_servicio: fecha,
-        observaciones: obs,
-        total: total,
-        items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
-      })
-    });
-  } catch(e) { console.warn('Sheet error:', e); }
+  // Send to Google Sheets with retry and visual feedback
+  var orderPayload = {
+    action: 'save',
+    heladeria: heladeria, contacto: contacto, telefono: telefono,
+    fecha_servicio: fecha, observaciones: obs, total: total,
+    items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
+  };
+
+  var sendOk = false;
+  var lastErr = '';
+  var maxRetries = 3;
+
+  for (var attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      btn.textContent = attempt > 1 ? 'Reintentando... (' + attempt + '/' + maxRetries + ')' : 'Enviando…';
+      var resp = await fetch('https://script.google.com/macros/s/AKfycbzWP3l9yApHG4GE78t0WsmzjAYY3Ggd79DM7zn-rMNLAcZukqpUxIN8Mn4Xp23bkLpZag/exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(orderPayload)
+      });
+      var result = await resp.json();
+      if (result && result.ok) {
+        sendOk = true;
+        orderPayload._confirmedId = result.id || '';
+        break;
+      } else {
+        lastErr = result && result.error ? result.error : 'Error del servidor';
+      }
+    } catch(e) {
+      lastErr = e.message || 'Error de conexión';
+      if (attempt < maxRetries) await new Promise(function(r){ setTimeout(r, 2000); });
+    }
+  }
+
+  if (!sendOk) {
+    // Show error but let user proceed — order saved locally
+    var errDiv = document.createElement('div');
+    errDiv.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#E24B4A;color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:600;z-index:999;max-width:300px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,0.2);';
+    errDiv.textContent = '⚠️ No se pudo confirmar el envío. Contacta con fábrica si el pedido no llega.';
+    document.body.appendChild(errDiv);
+    setTimeout(function(){ errDiv.remove(); }, 8000);
+  }
 
   try{var fn=heladeria.replace(/^cassata\s*/i,'');var fc=fecha?new Date(fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}):'';fetch('https://ntfy.sh/cassata-pedidos-jmgil',{method:'POST',headers:{'Title':'🍦 Pedido Cassata '+fn,'Priority':'high','Tags':'icecream'},body:'Entrega: '+fc+(contacto?' · '+contacto:'')});}catch(e){}
   // NOW download CSV (after sheet is already sent)
@@ -785,7 +810,7 @@ async function sendOrder(){
 }
 
 // ── CSV DOWNLOAD ──────────────────────────────────────────────
-function generateCSV(items,heladeria,contacto,telefono,fecha,obs){
+function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum){
   var fStr=fmtDate(fecha);
   var now=new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
   var helItems=items.filter(function(x){return !x[0].startsWith('AUX|');});
@@ -838,7 +863,7 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs){
   out+='<div><div style="font-family:Arial Black,Arial,sans-serif;font-size:18px;font-weight:900;color:#fff;letter-spacing:-0.5px;">CASSATA</div>';
   out+='<div style="color:#A8CCDE;font-size:8px;letter-spacing:2px;text-transform:uppercase;margin-top:2px;">Helados Artesanos · Hoja de Pedido 2026</div></div></div></td>';
   out+='<td style="background:#1B2D6B;padding:10px 14px;text-align:right;vertical-align:middle;">';
-  out+='<div style="color:#fff;font-size:15px;font-weight:900;">PEDIDO</div>';
+  out+='<div style="color:#fff;font-size:15px;font-weight:900;">PEDIDO '+(pedNum||'')+'</div>';
   out+='<div style="color:#A8CCDE;font-size:8px;margin-top:2px;">'+now+'</div></td></tr>';
   out+='<tr><td colspan="2" style="background:#F5C518;height:3px;padding:0;"></td></tr></table>';
 
