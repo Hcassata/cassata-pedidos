@@ -461,7 +461,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 
 <script>
 window._noop = function(){};
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw6Eqg7zqSlIBAaM0FEz1sQ3b_750QV0fpaQiWe-rRIhT7vwrfLFsDg62UjwIuiY1pm4w/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbysaCYCO1t0JM9FzQnmnWzYrBhX6FVfiHgU_29f30eVv7kHAC-__tVRNi8WihwE2bnCbA/exec';
 const FAB_PWD    = 'cassata2025';
 const MESES      = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const FESTIVOS   = new Set([
@@ -753,85 +753,37 @@ async function sendOrder(){
   const items=getItems();
   const total=getTotal();
 
-  // Send: call 1 = basic data (gets ID back), call 2 = items
-  // Call 1: basic data only (short URL, reliable)
-  var basicPayload = {
-    action: 'save',
-    heladeria: heladeria, contacto: contacto, telefono: telefono,
-    fecha_servicio: fecha, observaciones: obs, total: total,
-    items: [] // items sent separately
-  };
-
-  var jsonpResult = await new Promise(function(resolve) {
-    var cb = '_s1' + Date.now();
-    var s = document.createElement('script');
-    window[cb] = function(d) { delete window[cb]; s.remove(); resolve(d); };
-    s.onerror = function() { delete window[cb]; s.remove(); resolve(null); };
-    s.src = 'https://script.google.com/macros/s/AKfycbysaCYCO1t0JM9FzQnmnWzYrBhX6FVfiHgU_29f30eVv7kHAC-__tVRNi8WihwE2bnCbA/exec?callback=' + cb + '&data=' + encodeURIComponent(JSON.stringify(basicPayload));
-    document.head.appendChild(s);
-    setTimeout(function() { if(window[cb]) { delete window[cb]; s.remove(); resolve(null); } }, 12000);
-  });
-
-  if (jsonpResult && jsonpResult.ok) {
-    sendOk = true;
-    confirmedId = jsonpResult.id || '';
-    orderPayload._confirmedId = confirmedId;
-  } else {
-    // Retry once via fetch POST as backup
-    try {
-      btn.textContent = 'Reintentando…';
-      var resp = await fetch('https://script.google.com/macros/s/AKfycbysaCYCO1t0JM9FzQnmnWzYrBhX6FVfiHgU_29f30eVv7kHAC-__tVRNi8WihwE2bnCbA/exec', {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(orderPayload)
-      });
-      var text = await resp.text();
-      try {
-        var r2 = JSON.parse(text);
-        if (r2 && r2.ok) { sendOk = true; confirmedId = r2.id || ''; orderPayload._confirmedId = confirmedId; }
-      } catch(e) { sendOk = false; }
-    } catch(e) { sendOk = false; }
-  }
-
-  if (!sendOk) {
-    var errDiv = document.createElement('div');
-    errDiv.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#E24B4A;color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:600;z-index:999;max-width:320px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.2);';
-    errDiv.textContent = '⚠️ Pedido enviado pero sin confirmación. Contacta con fábrica si no lo reciben.';
-    document.body.appendChild(errDiv);
-    setTimeout(function(){ errDiv.remove(); }, 8000);
-  }
-
-  // Call 2: send items (fire and forget, don't wait)
-  if (sendOk && items.length > 0) {
-    var itemsPayload = {
-      action: 'update_items',
-      id: confirmedId,
-      items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
-    };
-    var cb2 = '_s2' + Date.now();
-    var s2 = document.createElement('script');
-    window[cb2] = function() { delete window[cb2]; s2.remove(); };
-    s2.onerror = function() { delete window[cb2]; s2.remove(); };
-    s2.src = 'https://script.google.com/macros/s/AKfycbysaCYCO1t0JM9FzQnmnWzYrBhX6FVfiHgU_29f30eVv7kHAC-__tVRNi8WihwE2bnCbA/exec?callback=' + cb2 + '&data=' + encodeURIComponent(JSON.stringify(itemsPayload));
-    document.head.appendChild(s2);
-    setTimeout(function() { if(window[cb2]) { delete window[cb2]; s2.remove(); } }, 15000);
-  }
+  // Send to Google Sheets via fetch POST (no size limit)
+  try {
+    await fetch('https://script.google.com/macros/s/AKfycbz-wykdfy_EvahnPGunLlykdRjrXmp8Mv1sn1tecs2r4i5EaOhTR1axyrvSbahH0r0_dQ/exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'save',
+        heladeria: heladeria,
+        contacto: contacto,
+        telefono: telefono,
+        fecha_servicio: fecha,
+        observaciones: obs,
+        total: total,
+        items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
+      })
+    });
+  } catch(e) { console.warn('Sheet error:', e); }
 
   try{var fn=heladeria.replace(/^cassata\s*/i,'');var fc=fecha?new Date(fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}):'';fetch('https://ntfy.sh/cassata-pedidos-jmgil',{method:'POST',headers:{'Title':'🍦 Pedido Cassata '+fn,'Priority':'high','Tags':'icecream'},body:'Entrega: '+fc+(contacto?' · '+contacto:'')});}catch(e){}
   // NOW download CSV (after sheet is already sent)
-  const pedNum = confirmedId || '';
+  // Generate client-side order reference
+  var FRANQ_PREFIX = {'Cassata Elda':'ELD','Cassata Petrer':'PET','Cassata Villena':'VIL','Cassata Alicante PAU5':'PAU','Cassata Toledo':'TOL'};
+  var prefix = FRANQ_PREFIX[heladeria] || 'PED';
+  var now = new Date();
+  var pedNum = prefix + '-' + String(now.getFullYear()).slice(2) + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2) + '-' + ('0'+now.getHours()).slice(-2) + ('0'+now.getMinutes()).slice(-2);
   const csv=generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum);
   const helNom=heladeria.replace(/[^a-zA-Z0-9-]/g,'-');
   downloadCSV(csv,`Pedido_Cassata_${helNom}_${fecha.replace(/-/g,'')}.html`);
 
   // Show success
-  // Show order number in success screen
-  var numBadge = confirmedId
-    ? '<div style="background:#1B2D6B;color:#F5C518;border-radius:10px;padding:8px 16px;font-family:Barlow Condensed,sans-serif;font-size:24px;font-weight:900;letter-spacing:.15em;text-align:center;margin-bottom:14px;">Nº ' + confirmedId + '</div>'
-    : '';
-  document.getElementById('success-resumen').innerHTML = numBadge + document.getElementById('resumen-card').innerHTML;
-  // Also pass to CSV download
-  window._lastOrderId = confirmedId;
+  document.getElementById('success-resumen').innerHTML=document.getElementById('resumen-card').innerHTML;
   show('s3','s4');
   document.getElementById('bottom-bar').style.display='none';
   document.querySelectorAll('.step-item').forEach(d=>{d.classList.remove('active');d.classList.add('done');});
