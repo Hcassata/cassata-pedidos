@@ -812,7 +812,13 @@ async function sendOrder(){
   downloadCSV(csv,`Pedido_Cassata_${helNom}_${fecha.replace(/-/g,'')}.csv`);
 
   // Show success
-  document.getElementById('success-resumen').innerHTML=document.getElementById('resumen-card').innerHTML;
+  // Show order number in success screen
+  var numBadge = confirmedId
+    ? '<div style="background:#1B2D6B;color:#F5C518;border-radius:10px;padding:8px 16px;font-family:Barlow Condensed,sans-serif;font-size:24px;font-weight:900;letter-spacing:.15em;text-align:center;margin-bottom:14px;">Nº ' + confirmedId + '</div>'
+    : '';
+  document.getElementById('success-resumen').innerHTML = numBadge + document.getElementById('resumen-card').innerHTML;
+  // Also pass to CSV download
+  window._lastOrderId = confirmedId;
   show('s3','s4');
   document.getElementById('bottom-bar').style.display='none';
   document.querySelectorAll('.step-item').forEach(d=>{d.classList.remove('active');d.classList.add('done');});
