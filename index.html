@@ -753,27 +753,23 @@ async function sendOrder(){
   const items=getItems();
   const total=getTotal();
 
-  // Send to Google Sheets via JSONP (most reliable for Apps Script)
-  var orderPayload = {
+  // Send: call 1 = basic data (gets ID back), call 2 = items
+  // Call 1: basic data only (short URL, reliable)
+  var basicPayload = {
     action: 'save',
     heladeria: heladeria, contacto: contacto, telefono: telefono,
     fecha_servicio: fecha, observaciones: obs, total: total,
-    items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
+    items: [] // items sent separately
   };
 
-  btn.textContent = 'Enviando…';
-  var sendOk = false;
-  var confirmedId = '';
-
-  // Use JSONP — the only method that reliably reads the Apps Script response
   var jsonpResult = await new Promise(function(resolve) {
-    var cb = '_send' + Date.now();
+    var cb = '_s1' + Date.now();
     var s = document.createElement('script');
     window[cb] = function(d) { delete window[cb]; s.remove(); resolve(d); };
-    s.onerror   = function()  { delete window[cb]; s.remove(); resolve(null); };
-    s.src = 'https://script.google.com/macros/s/AKfycbzWP3l9yApHG4GE78t0WsmzjAYY3Ggd79DM7zn-rMNLAcZukqpUxIN8Mn4Xp23bkLpZag/exec?callback=' + cb + '&data=' + encodeURIComponent(JSON.stringify(orderPayload));
+    s.onerror = function() { delete window[cb]; s.remove(); resolve(null); };
+    s.src = 'https://script.google.com/macros/s/AKfycbysaCYCO1t0JM9FzQnmnWzYrBhX6FVfiHgU_29f30eVv7kHAC-__tVRNi8WihwE2bnCbA/exec?callback=' + cb + '&data=' + encodeURIComponent(JSON.stringify(basicPayload));
     document.head.appendChild(s);
-    setTimeout(function() { if(window[cb]) { delete window[cb]; s.remove(); resolve(null); } }, 20000);
+    setTimeout(function() { if(window[cb]) { delete window[cb]; s.remove(); resolve(null); } }, 12000);
   });
 
   if (jsonpResult && jsonpResult.ok) {
@@ -784,7 +780,7 @@ async function sendOrder(){
     // Retry once via fetch POST as backup
     try {
       btn.textContent = 'Reintentando…';
-      var resp = await fetch('https://script.google.com/macros/s/AKfycbzWP3l9yApHG4GE78t0WsmzjAYY3Ggd79DM7zn-rMNLAcZukqpUxIN8Mn4Xp23bkLpZag/exec', {
+      var resp = await fetch('https://script.google.com/macros/s/AKfycbysaCYCO1t0JM9FzQnmnWzYrBhX6FVfiHgU_29f30eVv7kHAC-__tVRNi8WihwE2bnCbA/exec', {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(orderPayload)
@@ -803,6 +799,22 @@ async function sendOrder(){
     errDiv.textContent = '⚠️ Pedido enviado pero sin confirmación. Contacta con fábrica si no lo reciben.';
     document.body.appendChild(errDiv);
     setTimeout(function(){ errDiv.remove(); }, 8000);
+  }
+
+  // Call 2: send items (fire and forget, don't wait)
+  if (sendOk && items.length > 0) {
+    var itemsPayload = {
+      action: 'update_items',
+      id: confirmedId,
+      items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
+    };
+    var cb2 = '_s2' + Date.now();
+    var s2 = document.createElement('script');
+    window[cb2] = function() { delete window[cb2]; s2.remove(); };
+    s2.onerror = function() { delete window[cb2]; s2.remove(); };
+    s2.src = 'https://script.google.com/macros/s/AKfycbysaCYCO1t0JM9FzQnmnWzYrBhX6FVfiHgU_29f30eVv7kHAC-__tVRNi8WihwE2bnCbA/exec?callback=' + cb2 + '&data=' + encodeURIComponent(JSON.stringify(itemsPayload));
+    document.head.appendChild(s2);
+    setTimeout(function() { if(window[cb2]) { delete window[cb2]; s2.remove(); } }, 15000);
   }
 
   try{var fn=heladeria.replace(/^cassata\s*/i,'');var fc=fecha?new Date(fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}):'';fetch('https://ntfy.sh/cassata-pedidos-jmgil',{method:'POST',headers:{'Title':'🍦 Pedido Cassata '+fn,'Priority':'high','Tags':'icecream'},body:'Entrega: '+fc+(contacto?' · '+contacto:'')});}catch(e){}
