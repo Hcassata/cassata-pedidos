@@ -837,7 +837,7 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs){
         <div style="color:#A8CCDE;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:4px;">Hoja de Pedido · Temporada 2025</div>
       </td>
       <td style="text-align:right;vertical-align:middle;">
-        <div style="color:#F5C518;font-size:22px;font-weight:900;letter-spacing:-0.5px;">PEDIDO</div>
+        <div style="color:#F5C518;font-size:16px;font-weight:900;letter-spacing:-0.5px;">PEDIDO</div>
         <div style="color:#fff;font-size:12px;margin-top:2px;">${now}</div>
       </td>
     </tr>
@@ -851,7 +851,7 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs){
     </tr>
     <tr>
       <td style="padding:10px 14px;width:25%;font-size:12px;color:#8A97BB;font-weight:600;">HELADERÍA</td>
-      <td style="padding:10px 14px;width:25%;font-size:14px;font-weight:700;color:#1B2D6B;">${heladeria}</td>
+      <td style="padding:10px 14px;width:25%;font-size:11px;font-weight:700;color:#1B2D6B;">${heladeria}</td>
       <td style="padding:10px 14px;width:25%;font-size:12px;color:#8A97BB;font-weight:600;">CONTACTO</td>
       <td style="padding:10px 14px;width:25%;font-size:14px;color:#1B2D6B;">${contacto||'—'}</td>
     </tr>
@@ -859,9 +859,9 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs){
       <td style="padding:10px 14px;font-size:12px;color:#8A97BB;font-weight:600;">TELÉFONO</td>
       <td style="padding:10px 14px;font-size:14px;color:#1B2D6B;">${telefono||'—'}</td>
       <td style="padding:10px 14px;font-size:12px;color:#8A97BB;font-weight:600;">FECHA ENTREGA</td>
-      <td style="padding:10px 14px;font-size:14px;font-weight:700;color:#1B2D6B;">${fStr}</td>
+      <td style="padding:10px 14px;font-size:11px;font-weight:700;color:#1B2D6B;">${fStr}</td>
     </tr>
-    ${obs?`<tr><td style="padding:10px 14px;font-size:12px;color:#8A97BB;font-weight:600;">OBSERVACIONES</td><td colspan="3" style="padding:10px 14px;font-size:13px;color:#1B2D6B;">${obs}</td></tr>`:''}
+    ${obs?`<tr><td style="padding:10px 14px;font-size:12px;color:#8A97BB;font-weight:600;">OBSERVACIONES</td><td colspan="3" style="padding:10px 14px;font-size:11px;color:#1B2D6B;">${obs}</td></tr>`:''}
   </table>
 
   <!-- HELADOS -->
@@ -872,11 +872,11 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs){
     </div>
     <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E8EDF8;border-top:none;border-radius:0 0 6px 6px;overflow:hidden;">
       <tr style="background:#EEF1F7;">
-        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #1B2D6B;">Producto</th>
-        <th style="padding:8px 12px;text-align:center;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #1B2D6B;">Formato</th>
-        <th style="padding:8px 12px;text-align:center;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #1B2D6B;">Cantidad</th>
-        <th style="padding:8px 12px;text-align:right;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #1B2D6B;">P. Unit.</th>
-        <th style="padding:8px 12px;text-align:right;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #1B2D6B;">Total</th>
+        <th style="padding:5px 8px;text-align:left;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #1B2D6B;">Producto</th>
+        <th style="padding:5px 8px;text-align:center;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #1B2D6B;">Formato</th>
+        <th style="padding:5px 8px;text-align:center;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #1B2D6B;">Cantidad</th>
+        <th style="padding:5px 8px;text-align:right;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #1B2D6B;">P. Unit.</th>
+        <th style="padding:5px 8px;text-align:right;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #1B2D6B;">Total</th>
       </tr>
       ${helRows}
     </table>
@@ -890,11 +890,11 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs){
     </div>
     <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E8EDF8;border-top:none;border-radius:0 0 6px 6px;overflow:hidden;">
       <tr style="background:#EEF1F7;">
-        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #2A3F8F;">Producto</th>
-        <th style="padding:8px 12px;text-align:center;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #2A3F8F;">Formato</th>
-        <th style="padding:8px 12px;text-align:center;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #2A3F8F;">Cantidad</th>
-        <th style="padding:8px 12px;text-align:right;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #2A3F8F;">P. Unit.</th>
-        <th style="padding:8px 12px;text-align:right;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #2A3F8F;">Total</th>
+        <th style="padding:5px 8px;text-align:left;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #2A3F8F;">Producto</th>
+        <th style="padding:5px 8px;text-align:center;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #2A3F8F;">Formato</th>
+        <th style="padding:5px 8px;text-align:center;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #2A3F8F;">Cantidad</th>
+        <th style="padding:5px 8px;text-align:right;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #2A3F8F;">P. Unit.</th>
+        <th style="padding:5px 8px;text-align:right;font-size:11px;color:#4A5A8A;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid #2A3F8F;">Total</th>
       </tr>
       ${auxRows}
     </table>
