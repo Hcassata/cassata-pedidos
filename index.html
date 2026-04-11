@@ -1111,14 +1111,7 @@ if(isIOS&&!isStandalone&&!localStorage.getItem('ios-hint-dismissed')){{
 // ── INIT ──────────────────────────────────────────────────────
 buildAll();
 
-// ── FETCH-BASED FAB ──────────────────────────────────────────────────────────
-async function fabFetch() {
-  try {
-    var r = await fetch(SCRIPT_URL+'?action=list');
-    var d = await r.json();
-    if(d && d.ok) fabOrders = d.orders || [];
-  } catch(e) { console.warn('fabFetch error:', e); }
-}
+// fabFetch defined above using JSONP — just init badge
 fabFetch().then(updateBadge);
 
 // ── FACTORY TAB WITH FRANQ ───────────────────────────────────────────────────
