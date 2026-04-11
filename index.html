@@ -469,7 +469,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 
 <script>
 window._noop = function(){};
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxAIsPMo2uwRbRDg-8GlJMmetvKHp9WiLOvIblj8kW9OEndZ0MYATzJegFxT7BOmkgz/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzL-EhFkRrTC02cd3NDWZjEfVeSeUBt1uMXvMg6gYXiFjJlUaj7-hwtWaGEv7zA_etiqQ/exec';
 const FAB_PWD    = 'cassata2025';
 const MESES      = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const FESTIVOS   = new Set([
@@ -1483,45 +1483,35 @@ window.addEventListener('load',function(){
   🏭<span class="badge-count" id="badge-count"></span>
 </button>
 </body>
-</html// Send to Google Sheets via JSONP (works from GitHub Pages, returns order ID)
-  var orderData = {
-    action: 'save',
+</html// Generate order ID client-side from cached orders, then send via no-cors POST
+  // Count existing orders for this franchise to get next number
+  var FRANQ_PREFIX = {'Cassata Elda':'ELD','Cassata Petrer':'PET','Cassata Villena':'VIL','Cassata Alicante PAU5':'PAU','Cassata Toledo':'TOL','Otra franquicia':'OTR'};
+  var prefix = FRANQ_PREFIX[heladeria] || 'PED';
+  var existingOrders = (typeof fabOrders !== 'undefined' ? fabOrders : []);
+  var maxNum = 0;
+  existingOrders.forEach(function(o) {
+    if (o.id && o.id.startsWith(prefix + '-')) {
+      var n = parseInt(o.id.split('-')[1]) || 0;
+      if (n > maxNum) maxNum = n;
+    }
+  });
+  var confirmedId = prefix + '-' + String(maxNum + 1).padStart(3, '0');
+
+  // Send via no-cors POST with the pre-generated ID
+  var orderPayload = {
+    action: 'save_with_id',
+    id: confirmedId,
     heladeria: heladeria, contacto: contacto, telefono: telefono,
     fecha_servicio: fecha, observaciones: obs, total: total,
     items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
   };
-
-  // Split: send basic data first (short URL) to get ID, then items separately
-  var basicData = {
-    action: 'save',
-    heladeria: heladeria, contacto: contacto, telefono: telefono,
-    fecha_servicio: fecha, observaciones: obs, total: total,
-    items: []
-  };
-
-  var confirmedId = await new Promise(function(resolve) {
-    var cb = '_send' + Date.now();
-    var s = document.createElement('script');
-    window[cb] = function(d) { delete window[cb]; s.remove(); resolve(d && d.ok ? (d.id || '') : ''); };
-    s.onerror = function() { delete window[cb]; s.remove(); resolve(''); };
-    s.src = 'https://script.google.com/macros/s/AKfycbxAIsPMo2uwRbRDg-8GlJMmetvKHp9WiLOvIblj8kW9OEndZ0MYATzJegFxT7BOmkgz/exec?callback=' + cb + '&data=' + encodeURIComponent(JSON.stringify(basicData));
-    document.head.appendChild(s);
-    setTimeout(function() { if(window[cb]) { delete window[cb]; s.remove(); resolve(''); } }, 15000);
-  });
-
-  // Send items separately (fire and forget)
-  if (items.length > 0) {
-    var cb2 = '_items' + Date.now();
-    var s2 = document.createElement('script');
-    window[cb2] = function() { delete window[cb2]; s2.remove(); };
-    s2.onerror = function() { delete window[cb2]; s2.remove(); };
-    s2.src = 'https://script.google.com/macros/s/AKfycbxAIsPMo2uwRbRDg-8GlJMmetvKHp9WiLOvIblj8kW9OEndZ0MYATzJegFxT7BOmkgz/exec?callback=' + cb2 + '&data=' + encodeURIComponent(JSON.stringify({
-      action: 'update_items',
-      id: confirmedId,
-      items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
-    }));
-    document.head.appendChild(s2);
-    setTimeout(function() { if(window[cb2]) { delete window[cb2]; s2.remove(); } }, 15000);
-  }
+  try {
+    fetch('https://script.google.com/macros/s/AKfycbzL-EhFkRrTC02cd3NDWZjEfVeSeUBt1uMXvMg6gYXiFjJlUaj7-hwtWaGEv7zA_etiqQ/exec', {
+      method: 'POST',
+      mode: 'no-cors',
+      body: JSON.stringify(orderPayload)
+    });
+  } catch(e) { console.warn('send error:', e); }
+  await new Promise(function(r){ setTimeout(r, 600); });
 
 >
