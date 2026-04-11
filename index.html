@@ -1197,37 +1197,56 @@ function stopHistorialRefresh() {
 function loadMisPedidos(silent) {
   var el=document.getElementById('historial-list');
   if(!el)return;
-  if (!silent) el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;">⏳ Cargando...</div>';
-  fetch(SCRIPT_URL+'?action=list')
-    .then(function(r){return r.json();})
-    .then(function(d){
-      if(!d||!d.ok){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);">Error al cargar</div>';return;}
-      var orders=(d.orders||[]).filter(function(o){return o.heladeria===window.currentFranquicia.nombre;});
-      if(!orders.length){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;">No tienes pedidos todavía.<br>Pulsa <strong>+ Nuevo pedido</strong></div>';return;}
-      // Detect status changes vs previous load
-      var prevOrders = window._misPedidos || [];
-      var changed = {};
-      orders.forEach(function(o) {
-        var prev = prevOrders.find(function(p){ return p.id === o.id; });
-        if (prev && prev.status !== o.status) changed[o.id] = true;
-      });
-      window._misPedidos=orders;
-      el.innerHTML=orders.map(function(o,idx){
-        var sc=o.status==='Preparado'?'background:#D1FAE5;color:#065F46':o.status==='Enviado'?'background:#DBEAFE;color:#1E3A8A':'background:#FEF3C7;color:#92400E';
-        var si=o.status==='Preparado'?'✓ Preparado':o.status==='Enviado'?'🚚 Enviado':'⏳ Pendiente';
-        var tot=o.total>0?parseFloat(o.total).toFixed(2)+' €':'—';
-        var highlight = changed[o.id] ? 'border:2px solid #F5C518;animation:pulse 1s ease 3;' : 'border:1px solid var(--border);';
-        return '<div class="hist-order-card" data-idx="'+idx+'" style="background:var(--cream);border-radius:12px;'+highlight+'padding:14px 16px;margin-bottom:10px;cursor:pointer;">' +
-          '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">' +
-          '<span style="font-family:Barlow Condensed,sans-serif;font-size:17px;font-weight:800;color:var(--navy);">'+fmtDate(o.fecha)+'</span>' +
-          '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;'+sc+';">'+si+'</span></div>' +
-          '<div style="font-size:13px;color:var(--text-mid);">Total: <strong>'+tot+'</strong> · '+(o.items||[]).length+' productos</div></div>';
-      }).join('');
-      el.querySelectorAll('.hist-order-card').forEach(function(card){
-        card.addEventListener('click',function(){showPedidoDetalle(parseInt(this.getAttribute('data-idx')));;});
-      });
-    })
-    .catch(function(){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);">Error de conexión</div>';});
+  if(!silent) el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;">⏳ Cargando...</div>';
+
+  // Use JSONP — same as fabFetch, works from GitHub Pages
+  var cb='_mis'+Date.now();
+  var s=document.createElement('script');
+  window[cb]=function(d){
+    delete window[cb]; s.remove();
+    if(!d||!d.ok){
+      if(!silent) el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);">Error de conexión</div>';
+      return;
+    }
+    if(!window.currentFranquicia) return;
+    var orders=(d.orders||[]).filter(function(o){return o.heladeria===window.currentFranquicia.nombre;});
+
+    // Detect status changes vs previous load
+    var prevOrders=window._misPedidos||[];
+    var changed={};
+    orders.forEach(function(o){
+      var prev=prevOrders.find(function(p){return p.id===o.id;});
+      if(prev&&prev.status!==o.status) changed[o.id]=true;
+    });
+    window._misPedidos=orders;
+
+    if(!orders.length){
+      el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;">No tienes pedidos todavía.<br>Pulsa <strong>+ Nuevo pedido</strong></div>';
+      return;
+    }
+    el.innerHTML=orders.map(function(o,idx){
+      var sc=o.status==='Preparado'?'background:#D1FAE5;color:#065F46':o.status==='Enviado'?'background:#DBEAFE;color:#1E3A8A':'background:#FEF3C7;color:#92400E';
+      var si=o.status==='Preparado'?'✓ Preparado':o.status==='Enviado'?'🚚 Enviado':'⏳ Pendiente';
+      var tot=o.total>0?parseFloat(o.total).toFixed(2)+' €':'—';
+      var highlight=changed[o.id]?'border:2px solid #F5C518;animation:pulse 1s ease 3;':'border:1px solid var(--border);';
+      return '<div class="hist-order-card" data-idx="'+idx+'" style="background:var(--cream);border-radius:12px;'+highlight+'padding:14px 16px;margin-bottom:10px;cursor:pointer;">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'+
+        '<span style="font-family:Barlow Condensed,sans-serif;font-size:17px;font-weight:800;color:var(--navy);">'+fmtDate(o.fecha)+'</span>'+
+        '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;'+sc+';">'+si+'</span></div>'+
+        '<div style="font-size:13px;color:var(--text-mid);">Total: <strong>'+tot+'</strong> · '+(o.items||[]).length+' productos</div></div>';
+    }).join('');
+    el.querySelectorAll('.hist-order-card').forEach(function(card){
+      card.addEventListener('click',function(){showPedidoDetalle(parseInt(this.getAttribute('data-idx')));});
+    });
+    var lu=document.getElementById('last-updated');
+    if(lu) lu.textContent='Actualizado: '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  };
+  s.onerror=function(){
+    delete window[cb]; s.remove();
+    if(!silent) el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);">Error de conexión</div>';
+  };
+  s.src=SCRIPT_URL+'?action=list&callback='+cb;
+  document.body.appendChild(s);
 }
 
 function showOrderModal(o, canDownload) {
