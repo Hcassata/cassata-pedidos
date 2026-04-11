@@ -222,6 +222,11 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 /* PWA install */
 .pwa-btn{position:fixed;bottom:90px;left:16px;z-index:150;background:var(--gold);color:var(--navy);border:none;border-radius:24px;padding:10px 16px;font-family:"Barlow Condensed",sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;display:none;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(27,45,107,.25);-webkit-tap-highlight-color:transparent;}
 .ios-hint{display:none;position:fixed;bottom:90px;left:12px;right:72px;z-index:150;background:var(--navy);color:#fff;border-radius:14px;padding:12px 16px;font-size:13px;align-items:flex-start;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.3);}
+
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(245,197,24,0); }
+  50% { box-shadow: 0 0 0 6px rgba(245,197,24,0.4); }
+}
 </style>
 </head>
 <body>
@@ -274,7 +279,10 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
     <button id="btn-fab-pin" style="width:100%;padding:12px;background:transparent;color:var(--text-mid);border:1.5px solid var(--border);border-radius:14px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;cursor:pointer;touch-action:manipulation;margin-top:10px;">🏭 Acceso fábrica</button>
     <div id="historial-section" style="display:none;margin-top:28px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--navy);">Mis pedidos</div>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--navy);">Mis pedidos</div>
+          <div id="last-updated" style="font-size:11px;color:var(--text-light);margin-top:2px;"></div>
+        </div>
         <button id="btn-nuevo" style="padding:10px 18px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;cursor:pointer;touch-action:manipulation;">+ Nuevo pedido</button>
       </div>
       <div id="historial-list"></div>
@@ -1162,8 +1170,10 @@ function pinEnter() {
   document.getElementById('historial-section').style.display='block';
   document.getElementById('btn-entrar').style.display='none';
   loadMisPedidos();
+  startHistorialRefresh();
 }
 function pinGoNew() {
+  stopHistorialRefresh();
   document.getElementById('pin-overlay').style.display='none';
   document.getElementById('steps-wrap').style.display='';
   document.getElementById('bottom-bar').style.display='';
@@ -1175,22 +1185,46 @@ function pinGoNew() {
   if(ft)ft.style.display='flex';
 }
 
-function loadMisPedidos() {
+var _refreshTimer = null;
+
+function startHistorialRefresh() {
+  stopHistorialRefresh();
+  _refreshTimer = setInterval(function() {
+    var section = document.getElementById('historial-section');
+    if (section && section.style.display !== 'none') {
+      loadMisPedidos(true); // silent refresh
+    }
+  }, 30000); // every 30 seconds
+}
+
+function stopHistorialRefresh() {
+  if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
+}
+
+function loadMisPedidos(silent) {
   var el=document.getElementById('historial-list');
   if(!el)return;
-  el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;">⏳ Cargando...</div>';
+  if (!silent) el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;">⏳ Cargando...</div>';
   fetch(SCRIPT_URL+'?action=list')
     .then(function(r){return r.json();})
     .then(function(d){
       if(!d||!d.ok){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);">Error al cargar</div>';return;}
       var orders=(d.orders||[]).filter(function(o){return o.heladeria===window.currentFranquicia.nombre;});
       if(!orders.length){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;">No tienes pedidos todavía.<br>Pulsa <strong>+ Nuevo pedido</strong></div>';return;}
+      // Detect status changes vs previous load
+      var prevOrders = window._misPedidos || [];
+      var changed = {};
+      orders.forEach(function(o) {
+        var prev = prevOrders.find(function(p){ return p.id === o.id; });
+        if (prev && prev.status !== o.status) changed[o.id] = true;
+      });
       window._misPedidos=orders;
       el.innerHTML=orders.map(function(o,idx){
         var sc=o.status==='Preparado'?'background:#D1FAE5;color:#065F46':o.status==='Enviado'?'background:#DBEAFE;color:#1E3A8A':'background:#FEF3C7;color:#92400E';
         var si=o.status==='Preparado'?'✓ Preparado':o.status==='Enviado'?'🚚 Enviado':'⏳ Pendiente';
         var tot=o.total>0?parseFloat(o.total).toFixed(2)+' €':'—';
-        return '<div class="hist-order-card" data-idx="'+idx+'" style="background:var(--cream);border-radius:12px;border:1px solid var(--border);padding:14px 16px;margin-bottom:10px;cursor:pointer;">' +
+        var highlight = changed[o.id] ? 'border:2px solid #F5C518;animation:pulse 1s ease 3;' : 'border:1px solid var(--border);';
+        return '<div class="hist-order-card" data-idx="'+idx+'" style="background:var(--cream);border-radius:12px;'+highlight+'padding:14px 16px;margin-bottom:10px;cursor:pointer;">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">' +
           '<span style="font-family:Barlow Condensed,sans-serif;font-size:17px;font-weight:800;color:var(--navy);">'+fmtDate(o.fecha)+'</span>' +
           '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;'+sc+';">'+si+'</span></div>' +
