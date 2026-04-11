@@ -1183,6 +1183,39 @@ function pinPress(v) {
   if(pinBuf.length>=4) return;
   pinBuf+=v; pinDots();
 }
+function openCal(){
+  calMin=minFecha(); calY=calMin.getFullYear(); calM=calMin.getMonth();
+  renderCal(); document.getElementById('cal-overlay').classList.add('open');
+}
+function closeCal(){ document.getElementById('cal-overlay').classList.remove('open'); }
+function calNav(d){ calM+=d; if(calM>11){calM=0;calY++;} if(calM<0){calM=11;calY--;} renderCal(); }
+function renderCal(){
+  document.getElementById('cal-month-label').textContent=MESES[calM]+' '+calY;
+  const grid=document.getElementById('cal-grid'); grid.innerHTML='';
+  const first=new Date(calY,calM,1).getDay(); const start=first===0?6:first-1;
+  const days=new Date(calY,calM+1,0).getDate();
+  const selIso=document.getElementById('fecha').value;
+  for(let i=0;i<start;i++){ const e=document.createElement('div'); e.className='cal-day empty'; grid.appendChild(e); }
+  for(let day=1;day<=days;day++){
+    const d=new Date(calY,calM,day); const iso=isoDate(d);
+    const habil=isHabil(d); const before=d<calMin;
+    const disabled=!habil||before; const sel=iso===selIso;
+    const el=document.createElement('div');
+    el.className='cal-day '+(sel?'selected':disabled?'disabled':'available');
+    el.textContent=day;
+    if(!disabled){ el.onclick=()=>selectDate(iso,d); }
+    grid.appendChild(el);
+  }
+}
+function selectDate(iso,d){
+  document.getElementById('fecha').value=iso;
+  const txt=d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('cal-display-txt').textContent=txt;
+  document.getElementById('cal-display-txt').style.color='var(--text)';
+  closeCal();
+}
+document.getElementById('cal-overlay').addEventListener('click',function(e){ if(e.target===this) closeCal(); });
+
 function pinEnter() {
   var nombre=PIN_MAP[pinBuf];
   var err=document.getElementById('pin-err');
