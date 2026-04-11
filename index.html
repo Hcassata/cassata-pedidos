@@ -222,11 +222,6 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 /* PWA install */
 .pwa-btn{position:fixed;bottom:90px;left:16px;z-index:150;background:var(--gold);color:var(--navy);border:none;border-radius:24px;padding:10px 16px;font-family:"Barlow Condensed",sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;display:none;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(27,45,107,.25);-webkit-tap-highlight-color:transparent;}
 .ios-hint{display:none;position:fixed;bottom:90px;left:12px;right:72px;z-index:150;background:var(--navy);color:#fff;border-radius:14px;padding:12px 16px;font-size:13px;align-items:flex-start;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.3);}
-
-@keyframes pulse {
-  0%,100% { box-shadow: 0 0 0 0 rgba(245,197,24,0); }
-  50% { box-shadow: 0 0 0 6px rgba(245,197,24,0.4); }
-}
 </style>
 </head>
 <body>
@@ -279,10 +274,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
     <button id="btn-fab-pin" style="width:100%;padding:12px;background:transparent;color:var(--text-mid);border:1.5px solid var(--border);border-radius:14px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;cursor:pointer;touch-action:manipulation;margin-top:10px;">🏭 Acceso fábrica</button>
     <div id="historial-section" style="display:none;margin-top:28px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--navy);">Mis pedidos</div>
-          <div id="last-updated" style="font-size:11px;color:var(--text-light);margin-top:2px;"></div>
-        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--navy);">Mis pedidos</div>
         <button id="btn-nuevo" style="padding:10px 18px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;cursor:pointer;touch-action:manipulation;">+ Nuevo pedido</button>
       </div>
       <div id="historial-list"></div>
@@ -486,50 +478,13 @@ function isoDate(d){ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2
 function isHabil(d){ const w=d.getDay(); return w!==0&&w!==6&&!FESTIVOS.has(isoDate(d)); }
 function minFecha(){ const d=new Date(); d.setHours(0,0,0,0); let c=0; while(c<3){ d.setDate(d.getDate()+1); if(isHabil(d))c++; } while(!isHabil(d)) d.setDate(d.getDate()+1); return new Date(d); }
 function safeId(k){ return 'q_'+k.replace(/[^a-z0-9]/gi,'_'); }
-function fmtDate(iso){
-  if(!iso) return '—';
-  try{
-    var s=String(iso).trim();
-    var d;
-    if(s.indexOf('/')>-1){
-      // dd/MM/yyyy HH:mm
-      var dp=s.split(' ')[0].split('/');
-      d=new Date(parseInt(dp[2]),parseInt(dp[1])-1,parseInt(dp[0]));
-    } else if(s.indexOf('T')>-1 || s.indexOf('Z')>-1){
-      // ISO: 2026-04-26T22:00:00.000Z — use date part only, avoid UTC shift
-      var datePart=s.split('T')[0];
-      var p=datePart.split('-');
-      d=new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));
-    } else {
-      // yyyy-MM-dd
-      var p=s.split('-');
-      d=new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));
-    }
-    if(isNaN(d.getTime())) return s;
-    return d.toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
-  }catch(e){return String(iso);}
-}
-function fmtCreatedAt(raw){
-  if(!raw) return '';
-  try{
-    var s=String(raw).trim();
-    var d;
-    if(s.indexOf('/')>-1){
-      // dd/MM/yyyy HH:mm from Apps Script
-      var parts=s.split(' ');
-      var dp=parts[0].split('/');
-      d=new Date(parseInt(dp[2]),parseInt(dp[1])-1,parseInt(dp[0]));
-      var time=parts[1]?parts[1].substring(0,5):'';
-      return d.toLocaleDateString('es-ES',{day:'numeric',month:'short'})+' '+time;
-    } else {
-      // ISO: 2026-04-11T18:58:00.000Z — convert to local time
-      d=new Date(s);
-      if(isNaN(d.getTime())) return s;
-      // Use local time (not UTC)
-      return d.toLocaleDateString('es-ES',{day:'numeric',month:'short'})+' '+
-             ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
-    }
-  }catch(e){return String(raw);}
+function fmtDate(iso){ if(!iso) return '—'; try{ const p=iso.split('-'); const d=new Date(+p[0],+p[1]-1,+p[2]); return d.toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'}); }catch(e){return iso;} }
+
+// ── CALENDAR ─────────────────────────────────────────────────
+let calY, calM, calMin;
+function openCal(){
+  calMin=minFecha(); calY=calMin.getFullYear(); calM=calMin.getMonth();
+  renderCal(); document.getElementById('cal-overlay').classList.add('open');
 }
 function closeCal(){ document.getElementById('cal-overlay').classList.remove('open'); }
 function calNav(d){ calM+=d; if(calM>11){calM=0;calY++;} if(calM<0){calM=11;calY--;} renderCal(); }
@@ -818,11 +773,11 @@ async function sendOrder(){
 
   try{var fn=heladeria.replace(/^cassata\s*/i,'');var fc=fecha?new Date(fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}):'';fetch('https://ntfy.sh/cassata-pedidos-jmgil',{method:'POST',headers:{'Title':'🍦 Pedido Cassata '+fn,'Priority':'high','Tags':'icecream'},body:'Entrega: '+fc+(contacto?' · '+contacto:'')});}catch(e){}
   // NOW download CSV (after sheet is already sent)
-  // Use server-confirmed ID if available, otherwise client-side reference
+  // Generate client-side order reference
   var FRANQ_PREFIX = {'Cassata Elda':'ELD','Cassata Petrer':'PET','Cassata Villena':'VIL','Cassata Alicante PAU5':'PAU','Cassata Toledo':'TOL'};
   var prefix = FRANQ_PREFIX[heladeria] || 'PED';
-  var now2 = new Date();
-  var pedNum = confirmedId || (prefix + '-' + String(now2.getFullYear()).slice(2) + ('0'+(now2.getMonth()+1)).slice(-2) + ('0'+now2.getDate()).slice(-2) + '-' + ('0'+now2.getHours()).slice(-2) + ('0'+now2.getMinutes()).slice(-2));
+  var now = new Date();
+  var pedNum = prefix + '-' + String(now.getFullYear()).slice(2) + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2) + '-' + ('0'+now.getHours()).slice(-2) + ('0'+now.getMinutes()).slice(-2);
   const csv=generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum);
   const helNom=heladeria.replace(/[^a-zA-Z0-9-]/g,'-');
   downloadCSV(csv,`Pedido_Cassata_${helNom}_${fecha.replace(/-/g,'')}.html`);
@@ -1148,7 +1103,14 @@ if(isIOS&&!isStandalone&&!localStorage.getItem('ios-hint-dismissed')){{
 // ── INIT ──────────────────────────────────────────────────────
 buildAll();
 
-// fabFetch defined above using JSONP — just init badge
+// ── FETCH-BASED FAB ──────────────────────────────────────────────────────────
+async function fabFetch() {
+  try {
+    var r = await fetch(SCRIPT_URL+'?action=list');
+    var d = await r.json();
+    if(d && d.ok) fabOrders = d.orders || [];
+  } catch(e) { console.warn('fabFetch error:', e); }
+}
 fabFetch().then(updateBadge);
 
 // ── FACTORY TAB WITH FRANQ ───────────────────────────────────────────────────
@@ -1191,39 +1153,6 @@ function pinPress(v) {
   if(pinBuf.length>=4) return;
   pinBuf+=v; pinDots();
 }
-function openCal(){
-  calMin=minFecha(); calY=calMin.getFullYear(); calM=calMin.getMonth();
-  renderCal(); document.getElementById('cal-overlay').classList.add('open');
-}
-function closeCal(){ document.getElementById('cal-overlay').classList.remove('open'); }
-function calNav(d){ calM+=d; if(calM>11){calM=0;calY++;} if(calM<0){calM=11;calY--;} renderCal(); }
-function renderCal(){
-  document.getElementById('cal-month-label').textContent=MESES[calM]+' '+calY;
-  const grid=document.getElementById('cal-grid'); grid.innerHTML='';
-  const first=new Date(calY,calM,1).getDay(); const start=first===0?6:first-1;
-  const days=new Date(calY,calM+1,0).getDate();
-  const selIso=document.getElementById('fecha').value;
-  for(let i=0;i<start;i++){ const e=document.createElement('div'); e.className='cal-day empty'; grid.appendChild(e); }
-  for(let day=1;day<=days;day++){
-    const d=new Date(calY,calM,day); const iso=isoDate(d);
-    const habil=isHabil(d); const before=d<calMin;
-    const disabled=!habil||before; const sel=iso===selIso;
-    const el=document.createElement('div');
-    el.className='cal-day '+(sel?'selected':disabled?'disabled':'available');
-    el.textContent=day;
-    if(!disabled){ el.onclick=()=>selectDate(iso,d); }
-    grid.appendChild(el);
-  }
-}
-function selectDate(iso,d){
-  document.getElementById('fecha').value=iso;
-  const txt=d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  document.getElementById('cal-display-txt').textContent=txt;
-  document.getElementById('cal-display-txt').style.color='var(--text)';
-  closeCal();
-}
-document.getElementById('cal-overlay').addEventListener('click',function(e){ if(e.target===this) closeCal(); });
-
 function pinEnter() {
   var nombre=PIN_MAP[pinBuf];
   var err=document.getElementById('pin-err');
@@ -1233,10 +1162,8 @@ function pinEnter() {
   document.getElementById('historial-section').style.display='block';
   document.getElementById('btn-entrar').style.display='none';
   loadMisPedidos();
-  startHistorialRefresh();
 }
 function pinGoNew() {
-  stopHistorialRefresh();
   document.getElementById('pin-overlay').style.display='none';
   document.getElementById('steps-wrap').style.display='';
   document.getElementById('bottom-bar').style.display='';
@@ -1248,78 +1175,32 @@ function pinGoNew() {
   if(ft)ft.style.display='flex';
 }
 
-var _refreshTimer = null;
-
-function startHistorialRefresh() {
-  stopHistorialRefresh();
-  _refreshTimer = setInterval(function() {
-    var section = document.getElementById('historial-section');
-    var overlay = document.getElementById('pin-overlay');
-    if (section && section.style.display !== 'none' && overlay && overlay.style.display !== 'none') {
-      loadMisPedidos(true);
-    }
-  }, 20000);
-}
-
-function stopHistorialRefresh() {
-  if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
-}
-
-function loadMisPedidos(silent) {
+function loadMisPedidos() {
   var el=document.getElementById('historial-list');
   if(!el)return;
-  if(!silent) el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;">⏳ Cargando...</div>';
-
-  // Use JSONP — same as fabFetch, works from GitHub Pages
-  var cb='_mis'+Date.now();
-  var s=document.createElement('script');
-  window[cb]=function(d){
-    delete window[cb]; s.remove();
-    if(!d||!d.ok){
-      if(!silent) el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);">Error de conexión</div>';
-      return;
-    }
-    if(!window.currentFranquicia) return;
-    var orders=(d.orders||[]).filter(function(o){return o.heladeria===window.currentFranquicia.nombre;});
-
-    // Detect status changes vs previous load
-    var prevOrders=window._misPedidos||[];
-    var changed={};
-    orders.forEach(function(o){
-      var prev=prevOrders.find(function(p){return p.id===o.id;});
-      if(prev&&prev.status!==o.status) changed[o.id]=true;
-    });
-    window._misPedidos=orders;
-
-    if(!orders.length){
-      el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;">No tienes pedidos todavía.<br>Pulsa <strong>+ Nuevo pedido</strong></div>';
-      return;
-    }
-    el.innerHTML=orders.map(function(o,idx){
-      var sc=o.status==='Preparado'?'background:#D1FAE5;color:#065F46':o.status==='Enviado'?'background:#DBEAFE;color:#1E3A8A':'background:#FEF3C7;color:#92400E';
-      var si=o.status==='Preparado'?'✓ Preparado':o.status==='Enviado'?'🚚 Enviado':'⏳ Pendiente';
-      var tot=o.total>0?parseFloat(o.total).toFixed(2)+' €':'—';
-      var highlight=changed[o.id]?'border:2px solid #F5C518;animation:pulse 1s ease 3;':'border:1px solid var(--border);';
-      return '<div class="hist-order-card" data-idx="'+idx+'" style="background:var(--cream);border-radius:12px;'+highlight+'padding:14px 16px;margin-bottom:10px;cursor:pointer;">'+
-        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'+
-        '<div style="line-height:1.3;">'+
-        '<span style="font-family:Barlow Condensed,sans-serif;font-size:17px;font-weight:800;color:var(--navy);">'+(o.id||'—')+'</span>'+
-        '<div style="font-size:11px;color:var(--text-mid);margin-top:1px;">Pedido: '+fmtCreatedAt(o.createdAt)+'  ·  Entrega: '+fmtDate(o.fecha)+'</div></div>'+
-        '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;'+sc+';">'+si+'</span></div>'+
-        '<div style="font-size:13px;color:var(--text-mid);">Total: <strong>'+tot+'</strong> · '+(o.items||[]).length+' productos</div></div>';
-    }).join('');
-    el.querySelectorAll('.hist-order-card').forEach(function(card){
-      card.addEventListener('click',function(){showPedidoDetalle(parseInt(this.getAttribute('data-idx')));});
-    });
-    var lu=document.getElementById('last-updated');
-    if(lu) lu.textContent='Actualizado: '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  };
-  s.onerror=function(){
-    delete window[cb]; s.remove();
-    if(!silent) el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);">Error de conexión</div>';
-  };
-  s.src=SCRIPT_URL+'?action=list&callback='+cb+'&t='+Date.now();
-  document.body.appendChild(s);
+  el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;">⏳ Cargando...</div>';
+  fetch(SCRIPT_URL+'?action=list')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d||!d.ok){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);">Error al cargar</div>';return;}
+      var orders=(d.orders||[]).filter(function(o){return o.heladeria===window.currentFranquicia.nombre;});
+      if(!orders.length){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;">No tienes pedidos todavía.<br>Pulsa <strong>+ Nuevo pedido</strong></div>';return;}
+      window._misPedidos=orders;
+      el.innerHTML=orders.map(function(o,idx){
+        var sc=o.status==='Preparado'?'background:#D1FAE5;color:#065F46':o.status==='Enviado'?'background:#DBEAFE;color:#1E3A8A':'background:#FEF3C7;color:#92400E';
+        var si=o.status==='Preparado'?'✓ Preparado':o.status==='Enviado'?'🚚 Enviado':'⏳ Pendiente';
+        var tot=o.total>0?parseFloat(o.total).toFixed(2)+' €':'—';
+        return '<div class="hist-order-card" data-idx="'+idx+'" style="background:var(--cream);border-radius:12px;border:1px solid var(--border);padding:14px 16px;margin-bottom:10px;cursor:pointer;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">' +
+          '<span style="font-family:Barlow Condensed,sans-serif;font-size:17px;font-weight:800;color:var(--navy);">'+fmtDate(o.fecha)+'</span>' +
+          '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;'+sc+';">'+si+'</span></div>' +
+          '<div style="font-size:13px;color:var(--text-mid);">Total: <strong>'+tot+'</strong> · '+(o.items||[]).length+' productos</div></div>';
+      }).join('');
+      el.querySelectorAll('.hist-order-card').forEach(function(card){
+        card.addEventListener('click',function(){showPedidoDetalle(parseInt(this.getAttribute('data-idx')));;});
+      });
+    })
+    .catch(function(){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);">Error de conexión</div>';});
 }
 
 function showOrderModal(o, canDownload) {
@@ -1478,40 +1359,46 @@ window.addEventListener('load',function(){
   // Load products
   loadFromSheet();
 });
+
+// ── AUTO-REFRESH ──────────────────────────────────────────────────────────────
+var _prevStatuses = {};
+var _refreshTimer = null;
+
+async function refreshPanel() {
+  await fabFetch();
+  fabOrders.forEach(function(o) {
+    if (_prevStatuses[o.id] && _prevStatuses[o.id] !== o.status) {
+      var cards = document.querySelectorAll('.order-card');
+      cards.forEach(function(card) {
+        if (card.textContent.indexOf(o.id) > -1) {
+          card.style.outline = '3px solid #F5C518';
+          card.style.boxShadow = '0 0 12px rgba(245,197,24,0.5)';
+          setTimeout(function(){ card.style.outline=''; card.style.boxShadow=''; }, 4000);
+        }
+      });
+    }
+    _prevStatuses[o.id] = o.status;
+  });
+  renderOrders();
+  updateBadge();
+}
+
+var _origOpenFab = openFab;
+openFab = function() {
+  _origOpenFab();
+  fabOrders.forEach(function(o){ _prevStatuses[o.id] = o.status; });
+  if (!_refreshTimer) _refreshTimer = setInterval(refreshPanel, 20000);
+};
+
+var _origCloseFab = closeFab;
+closeFab = function() {
+  _origCloseFab();
+  clearInterval(_refreshTimer);
+  _refreshTimer = null;
+};
 </script>
 <button class="fab-trigger" id="fab-trigger-main" onclick="openFab()" style="display:none;" title="Panel de fábrica">
   🏭<span class="badge-count" id="badge-count"></span>
 </button>
 </body>
-</html// Generate order ID client-side from cached orders, then send via no-cors POST
-  // Count existing orders for this franchise to get next number
-  var FRANQ_PREFIX = {'Cassata Elda':'ELD','Cassata Petrer':'PET','Cassata Villena':'VIL','Cassata Alicante PAU5':'PAU','Cassata Toledo':'TOL','Otra franquicia':'OTR'};
-  var prefix = FRANQ_PREFIX[heladeria] || 'PED';
-  var existingOrders = (typeof fabOrders !== 'undefined' ? fabOrders : []);
-  var maxNum = 0;
-  existingOrders.forEach(function(o) {
-    if (o.id && o.id.startsWith(prefix + '-')) {
-      var n = parseInt(o.id.split('-')[1]) || 0;
-      if (n > maxNum) maxNum = n;
-    }
-  });
-  var confirmedId = prefix + '-' + String(maxNum + 1).padStart(3, '0');
-
-  // Send via no-cors POST with the pre-generated ID
-  var orderPayload = {
-    action: 'save_with_id',
-    id: confirmedId,
-    heladeria: heladeria, contacto: contacto, telefono: telefono,
-    fecha_servicio: fecha, observaciones: obs, total: total,
-    items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
-  };
-  try {
-    fetch('https://script.google.com/macros/s/AKfycbzL-EhFkRrTC02cd3NDWZjEfVeSeUBt1uMXvMg6gYXiFjJlUaj7-hwtWaGEv7zA_etiqQ/exec', {
-      method: 'POST',
-      mode: 'no-cors',
-      body: JSON.stringify(orderPayload)
-    });
-  } catch(e) { console.warn('send error:', e); }
-  await new Promise(function(r){ setTimeout(r, 600); });
-
->
+</html>
