@@ -778,7 +778,9 @@ async function sendOrder(){
   var prefix = FRANQ_PREFIX[heladeria] || 'PED';
   var now = new Date();
   var pedNum = prefix + '-' + String(now.getFullYear()).slice(2) + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2) + '-' + ('0'+now.getHours()).slice(-2) + ('0'+now.getMinutes()).slice(-2);
-  const csv=generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,getTotal());
+  // Calculate total directly from items array
+  var csvTotal = items.reduce(function(s,x){return s+x[1].qty*x[1].price;},0);
+  const csv=generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,csvTotal);
   const helNom=heladeria.replace(/[^a-zA-Z0-9-]/g,'-');
   downloadCSV(csv,`Pedido_Cassata_${helNom}_${fecha.replace(/-/g,'')}.html`);
 
@@ -795,7 +797,11 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
   var now=new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
   var helItems=items.filter(function(x){return !x[0].startsWith('AUX|');});
   var auxItems=items.filter(function(x){return x[0].startsWith('AUX|');});
-  var total = totalAmt !== undefined ? totalAmt : getTotal();
+  // Calculate total from items directly as most reliable method
+  var total = 0;
+  helItems.forEach(function(x){ total += (parseFloat(x[1].qty)||0) * (parseFloat(x[1].price)||0); });
+  auxItems.forEach(function(x){ total += (parseFloat(x[1].qty)||0) * (parseFloat(x[1].price)||0); });
+  if(total === 0 && totalAmt) total = parseFloat(totalAmt) || 0;
 
   function th(t,align,bg,color){
     return '<th style="padding:4px 7px;text-align:'+(align||'left')+';background:'+(bg||'#1B2D6B')+';color:'+(color||'#fff')+';font-size:9px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;">'+t+'</th>';
@@ -1300,7 +1306,9 @@ function dlPedidoHTML(id) {
   var o=(fabOrders||[]).find(function(x){return x.id===id;});
   if(!o)return;
   var it=(o.items||[]).map(function(i){return [i.key,{qty:i.qty,price:i.price}];});
-  var tot=parseFloat(String(o.total).replace(',','.')) || it.reduce(function(s,i){return s+i[1].qty*i[1].price;},0);
+  // Calculate total from items (most reliable), fallback to stored total
+  var tot=it.reduce(function(s,i){return s+(parseFloat(i[1].qty)||0)*(parseFloat(i[1].price)||0);},0);
+  if(!tot||tot===0) tot=parseFloat(String(o.total).replace(',','.')) || 0;
   var csv=generateCSV(it,o.heladeria,o.contacto,o.telefono,o.fecha,o.obs,o.id||'',tot);
   var nm=(o.heladeria||'pedido').replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
   downloadCSV(csv,'Pedido_'+nm+'_'+((o.fecha||'').replace(/-/g,''))+'.html');
