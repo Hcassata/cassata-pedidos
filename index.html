@@ -1223,10 +1223,22 @@ function loadMisPedidos(silent) {
         '<div style="font-size:11px;color:var(--text-mid);margin-top:2px;">Pedido: '+fechaPedido+' · Entrega: '+fechaEntrega+'</div>'+
         '</div>'+
         '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;'+sc+';">'+si+'</span></div>'+
-        '<div style="font-size:13px;color:var(--text-mid);">Total: <strong>'+tot+'</strong> · '+(o.items||[]).length+' productos</div></div>';
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">'+
+        '<div style="font-size:13px;color:var(--text-mid);">Total: <strong>'+tot+'</strong> · '+(o.items||[]).length+' productos</div>'+
+        '<button class="repetir-btn" data-idx="'+idx+'" style="padding:5px 12px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;flex-shrink:0;">🔁 Repetir</button>'+
+        '</div></div>';
     }).join('');
     el.querySelectorAll('.hist-order-card').forEach(function(card){
-      card.addEventListener('click',function(){showPedidoDetalle(parseInt(this.getAttribute('data-idx')));});
+      card.addEventListener('click',function(e){
+        if(e.target.classList.contains('repetir-btn')) return; // handled separately
+        showPedidoDetalle(parseInt(this.getAttribute('data-idx')));
+      });
+    });
+    el.querySelectorAll('.repetir-btn').forEach(function(btn){
+      btn.addEventListener('click',function(e){
+        e.stopPropagation();
+        repetirPedido(parseInt(this.getAttribute('data-idx')));
+      });
     });
     // Update timestamp
     var lu=document.getElementById('last-updated');
@@ -1457,6 +1469,71 @@ function stopHistorialRefresh(){
   lu.style.cssText='font-size:11px;color:var(--text-light);margin-top:2px;';
   heading.parentNode.insertBefore(lu,heading.nextSibling);
 })();
+
+// ── REPETIR PEDIDO ───────────────────────────────────────────────────────────
+function repetirPedido(idx) {
+  var o = (window._misPedidos||[])[idx];
+  if(!o || !o.items || !o.items.length) return;
+
+  // Confirm with user
+  var modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(27,45,107,.5);z-index:700;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = '<div style="background:#fff;border-radius:20px;width:100%;max-width:380px;padding:24px;">'+
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;color:var(--navy);margin-bottom:8px;">🔁 Repetir pedido</div>'+
+    '<div style="font-size:14px;color:var(--text-mid);margin-bottom:20px;">Se cargarán los <strong>'+o.items.length+' productos</strong> de tu pedido anterior. Solo tendrás que elegir la fecha de entrega.</div>'+
+    '<div style="display:flex;gap:10px;">'+
+    '<button id="rep-cancel" style="flex:1;padding:14px;border:1.5px solid var(--border);background:#fff;border-radius:12px;font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:700;cursor:pointer;">Cancelar</button>'+
+    '<button id="rep-confirm" style="flex:1;padding:14px;background:var(--navy);color:#fff;border:none;border-radius:12px;font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:800;cursor:pointer;">Sí, repetir →</button>'+
+    '</div></div>';
+  document.body.appendChild(modal);
+
+  modal.querySelector('#rep-cancel').addEventListener('click', function(){ modal.remove(); });
+  modal.querySelector('#rep-confirm').addEventListener('click', function(){
+    modal.remove();
+    loadPedidoAnterior(o);
+  });
+  modal.addEventListener('click', function(e){ if(e.target===modal) modal.remove(); });
+}
+
+function loadPedidoAnterior(o) {
+  // Reset qtys and load items from previous order
+  qtys = {};
+  (o.items||[]).forEach(function(item){
+    if(item.key && item.qty > 0) {
+      qtys[item.key] = { qty: item.qty, price: item.price };
+    }
+  });
+
+  // Navigate to step 2 (products) skipping step 1 data
+  // First go to new order flow
+  pinGoNew();
+
+  // Wait for DOM then jump to step 2 and rebuild
+  setTimeout(function(){
+    // Fill contacto/telefono from previous order if available
+    var contactoEl = document.getElementById('contacto');
+    var telefonoEl = document.getElementById('telefono');
+    if(contactoEl && o.contacto) contactoEl.value = o.contacto;
+    if(telefonoEl && o.telefono) telefonoEl.value = o.telefono;
+
+    // Go directly to step 2
+    step = 2;
+    ['s1','s2','s3','s4'].forEach(function(s){ document.getElementById(s).classList.remove('active'); });
+    document.getElementById('s2').classList.add('active');
+    document.getElementById('btn-back').style.display = '';
+    document.getElementById('btn-next').textContent = 'Ver resumen →';
+    updateDots();
+    buildAll(); // rebuild product list with qtys already set
+    switchTab('helados');
+
+    // Show toast
+    var toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1B2D6B;color:#F5C518;padding:12px 20px;border-radius:12px;font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:800;z-index:999;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.2);';
+    toast.textContent = '🔁 Pedido cargado — elige la fecha en el paso anterior';
+    document.body.appendChild(toast);
+    setTimeout(function(){ toast.remove(); }, 4000);
+  }, 300);
+}
 
 // ── AUTO-REFRESH ──────────────────────────────────────────────────────────────
 var _prevStatuses = {};
