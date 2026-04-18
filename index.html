@@ -778,7 +778,7 @@ async function sendOrder(){
   var prefix = FRANQ_PREFIX[heladeria] || 'PED';
   var now = new Date();
   var pedNum = prefix + '-' + String(now.getFullYear()).slice(2) + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2) + '-' + ('0'+now.getHours()).slice(-2) + ('0'+now.getMinutes()).slice(-2);
-  const csv=generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum);
+  const csv=generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,getTotal());
   const helNom=heladeria.replace(/[^a-zA-Z0-9-]/g,'-');
   downloadCSV(csv,`Pedido_Cassata_${helNom}_${fecha.replace(/-/g,'')}.html`);
 
@@ -790,12 +790,12 @@ async function sendOrder(){
 }
 
 // ── CSV DOWNLOAD ──────────────────────────────────────────────
-function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum){
+function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt){
   var fStr=fmtDate(fecha);
   var now=new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
   var helItems=items.filter(function(x){return !x[0].startsWith('AUX|');});
   var auxItems=items.filter(function(x){return x[0].startsWith('AUX|');});
-  var total=getTotal();
+  var total = totalAmt !== undefined ? totalAmt : getTotal();
 
   function th(t,align,bg,color){
     return '<th style="padding:4px 7px;text-align:'+(align||'left')+';background:'+(bg||'#1B2D6B')+';color:'+(color||'#fff')+';font-size:9px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;">'+t+'</th>';
