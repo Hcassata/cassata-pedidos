@@ -1300,7 +1300,8 @@ function dlPedidoHTML(id) {
   var o=(fabOrders||[]).find(function(x){return x.id===id;});
   if(!o)return;
   var it=(o.items||[]).map(function(i){return [i.key,{qty:i.qty,price:i.price}];});
-  var csv=generateCSV(it,o.heladeria,o.contacto,o.telefono,o.fecha,o.obs);
+  var tot=parseFloat(String(o.total).replace(',','.')) || it.reduce(function(s,i){return s+i[1].qty*i[1].price;},0);
+  var csv=generateCSV(it,o.heladeria,o.contacto,o.telefono,o.fecha,o.obs,o.id||'',tot);
   var nm=(o.heladeria||'pedido').replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
   downloadCSV(csv,'Pedido_'+nm+'_'+((o.fecha||'').replace(/-/g,''))+'.html');
 }
