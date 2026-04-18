@@ -330,13 +330,15 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
   <p class="sec-sub">Usa + y − para añadir las unidades que necesitas.</p>
   <div class="tab-row">
     <button class="tab-btn active" id="tab-helados" onclick="switchTab('helados')">🍦 Helados</button>
+    <button class="tab-btn" id="tab-pan" onclick="switchTab('pan')">🥐 Bollería</button>
     <button class="tab-btn" id="tab-aux" onclick="switchTab('aux')">📦 Auxiliares</button>
   </div>
   <div id="panel-helados">
     <div class="nota">Precios PVP sin IVA. Helados en tarrina <strong>5,5 L</strong> y <strong>2,5 L</strong>. Granizados por litro. Paletas por unidad.</div>
     <div class="card" id="product-list" style="padding:16px 18px;"></div>
   </div>
-  <div id="panel-aux" style="display:none">
+  <div <div id="panel-pan" style="display:none"><div id="pan-list"></div></div>
+  id="panel-aux" style="display:none">
     <div class="nota">Precios sin IVA. Cantidades por caja o unidad según producto.</div>
     <div class="card" id="aux-list" style="padding:16px 18px;"></div>
   </div>
@@ -661,11 +663,17 @@ function buildList(cats, containerId){
   });
   document.getElementById(containerId).innerHTML=html;
 }
-function buildAll(){ buildList(PRODUCTOS,'product-list'); buildList(AUX,'aux-list'); }
+function buildAll(){
+  buildList(PRODUCTOS,'product-list');
+  buildList(AUX,'aux-list');
+  if(window._PAN && window._PAN.length) buildList(window._PAN,'pan-list');
+}
 function switchTab(t){
   document.getElementById('panel-helados').style.display=t==='helados'?'':'none';
+  var pp=document.getElementById('panel-pan'); if(pp) pp.style.display=t==='pan'?'':'none';
   document.getElementById('panel-aux').style.display=t==='aux'?'':'none';
   document.getElementById('tab-helados').classList.toggle('active',t==='helados');
+  var tp=document.getElementById('tab-pan'); if(tp) tp.classList.toggle('active',t==='pan');
   document.getElementById('tab-aux').classList.toggle('active',t==='aux');
 }
 
@@ -1336,7 +1344,8 @@ var SHEET_TABS=[
   {name:'Desechables',twoPrice:false,fmt1:'',icon:'🥤',aux:true,sort:false},
   {name:'Cafe y azucar',twoPrice:false,fmt1:'',icon:'☕',aux:true,sort:false},
   {name:'Uniformidad',twoPrice:false,fmt1:'',icon:'👕',aux:true,sort:false},
-  {name:'Material Imagen',twoPrice:false,fmt1:'',icon:'🎨',aux:true,sort:false}
+  {name:'Material Imagen',twoPrice:false,fmt1:'',icon:'🎨',aux:true,sort:false},
+  {name:'Bolleria',twoPrice:false,fmt1:'',icon:'🥐',aux:false,sort:false,isPan:true}
 ];
 function toFloat(s){return parseFloat((s||'0').replace(',','.'))||0;}
 function parseCSVSheet(text){
@@ -1369,8 +1378,14 @@ async function loadFromSheet(){
     if(tab.sort)items.sort(function(a,b){return a.n.localeCompare(b.n,'es');});
     (tab.aux?newA:newP).push({cat:tab.icon+' '+tab.name,items:items});
   }
+  var newPan=[];
+  newP=newP.filter(function(c){
+    if(c.cat.indexOf('Bolleria')>-1||c.cat.indexOf('🥐')>-1){newPan.push(c);return false;}
+    return true;
+  });
   if(newP.length){PRODUCTOS.length=0;newP.forEach(function(c){PRODUCTOS.push(c);});}
   if(newA.length){AUX.length=0;newA.forEach(function(c){AUX.push(c);});}
+  if(newPan.length){window._PAN=newPan;}
   buildAll();
   console.log('Sheet OK:',PRODUCTOS[0]&&PRODUCTOS[0].items.length,'helados');
 }
