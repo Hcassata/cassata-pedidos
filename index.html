@@ -1075,36 +1075,238 @@ function dlExcel(idx){
   downloadCSV(csv,`Produccion_Cassata_${helNom}_${(o.fecha||'').replace(/-/g,'')}.csv`);
 }
 
-function renderStats(){
-  if(!fabOrders.length){ document.getElementById('fab-panel-stats').innerHTML='<div class="empty-msg">Sin datos todavía.</div>'; return; }
-  const total=fabOrders.reduce((s,o)=>s+(parseFloat(o.total)||0),0);
-  const pend=fabOrders.filter(o=>o.status==='Pendiente').length;
-  const prep=fabOrders.filter(o=>o.status==='Preparado').length;
-  const env=fabOrders.filter(o=>o.status==='Enviado').length;
-  const freq={};
-  fabOrders.forEach(o=>(o.items||[]).forEach(it=>{
-    const name=it.key.startsWith('AUX|')?it.key.replace('AUX|',''):it.key.split('|')[0];
-    freq[name]=(freq[name]||0)+it.qty;
-  }));
-  const top=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  document.getElementById('fab-panel-stats').innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-      <div class="stat-box"><div class="stat-lbl">Total facturado</div><div class="stat-val" style="font-size:20px">${total.toFixed(2)} €</div></div>
-      <div class="stat-box"><div class="stat-lbl">Total pedidos</div><div class="stat-val">${fabOrders.length}</div></div>
-      <div class="stat-box"><div class="stat-lbl">⏳ Pendientes</div><div class="stat-val" style="color:#92400E">${pend}</div></div>
-      <div class="stat-box"><div class="stat-lbl">✓ Preparados</div><div class="stat-val" style="color:#065F46">${prep}</div></div>
-    </div>
-    <div class="card-title" style="margin-bottom:10px">Más pedidos</div>
-    ${top.map(([n,q])=>`<div class="r-line"><span class="r-name">${n}</span><span class="r-qty">${q} uds</span></div>`).join('')}`;
+function renderStats() {
+  var el = document.getElementById('fab-panel-stats');
+  if (!el) return;
+
+  // ── Period selector UI ────────────────────────────────────────────────────
+  var now = new Date();
+  var curY = now.getFullYear();
+  var curM = now.getMonth(); // 0-based
+
+  if (!window._statsPeriod) window._statsPeriod = 'mes';
+  if (!window._statsCustomFrom) window._statsCustomFrom = '';
+  if (!window._statsCustomTo) window._statsCustomTo = '';
+
+  var periodHtml =
+    '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">' +
+    ['mes','año','custom'].map(function(p){
+      var label = p==='mes'?'📅 Mes actual':p==='año'?'📆 Año en curso':'🗓 Elegir fechas';
+      var active = window._statsPeriod===p;
+      return '<button class="stats-period-btn" data-period="'+p+'" style="padding:8px 16px;border-radius:20px;border:1.5px solid '+(active?'var(--navy)':'var(--border)')+';background:'+(active?'var(--navy)':'#fff')+';color:'+(active?'#fff':'var(--navy)')+';font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">'+label+'</button>';
+    }).join('') + '</div>';
+
+  if (window._statsPeriod === 'custom') {
+    periodHtml += '<div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">' +
+      '<label style="font-size:13px;color:var(--text-mid);">Desde:</label>' +
+      '<input type="date" id="stats-from" value="'+window._statsCustomFrom+'" onchange="window._statsCustomFrom=this.value;renderStats();" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">' +
+      '<label style="font-size:13px;color:var(--text-mid);">Hasta:</label>' +
+      '<input type="date" id="stats-to" value="'+window._statsCustomTo+'" onchange="window._statsCustomTo=this.value;renderStats();" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">' +
+      '</div>';
+  }
+
+  // ── Filter orders by period ───────────────────────────────────────────────
+  var orders = (fabOrders || []).filter(function(o) {
+    if (!o.fecha) return false;
+    var d;
+    try {
+      var s = String(o.fecha).trim();
+      if (s.indexOf('/')>-1) { var p=s.split(' ')[0].split('/'); d=new Date(+p[2],+p[1]-1,+p[0]); }
+      else { var p=s.split('T')[0].split('-'); d=new Date(+p[0],+p[1]-1,+p[2]); }
+    } catch(e) { return false; }
+    if (isNaN(d.getTime())) return false;
+    if (window._statsPeriod === 'mes') return d.getFullYear()===curY && d.getMonth()===curM;
+    if (window._statsPeriod === 'año') return d.getFullYear()===curY;
+    if (window._statsPeriod === 'custom') {
+      var from = window._statsCustomFrom ? new Date(window._statsCustomFrom) : null;
+      var to   = window._statsCustomTo   ? new Date(window._statsCustomTo)   : null;
+      if (from && d < from) return false;
+      if (to   && d > to)   return false;
+      return true;
+    }
+    return true;
+  });
+
+  var periodLabel = window._statsPeriod==='mes' ?
+    new Date(curY,curM,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'}) :
+    window._statsPeriod==='año' ? 'Año '+curY : 'Período personalizado';
+
+  if (!orders.length) {
+    // Render first, then attach listeners
+  var _statsHtml = periodHtml +
+      '<div class="empty-msg">No hay pedidos en este período.</div>';
+    return;
+  }
+
+  // ── Calculations ──────────────────────────────────────────────────────────
+  var totalImporte = 0;
+  var byFranquicia = {};
+  var byProducto = {};
+  var byMes = {};
+  var FRANQ_LIST = ['Cassata Elda','Cassata Petrer','Cassata Villena','Cassata Alicante PAU5','Cassata Toledo','Otra franquicia'];
+
+  orders.forEach(function(o) {
+    var hel = o.heladeria || 'Desconocida';
+    var items = o.items || [];
+
+    // Total from items
+    var orderTotal = items.reduce(function(s,i){ return s + (i.qty||0)*(i.price||0); }, 0);
+    if (orderTotal === 0) orderTotal = parseFloat(o.total) || 0;
+    totalImporte += orderTotal;
+
+    // By franquicia
+    if (!byFranquicia[hel]) byFranquicia[hel] = {pedidos:0, importe:0};
+    byFranquicia[hel].pedidos++;
+    byFranquicia[hel].importe += orderTotal;
+
+    // By producto
+    items.forEach(function(it) {
+      var key = it.key || '';
+      var parts = key.split('|');
+      var name = parts[0].replace('AUX|','').replace('PAN|','');
+      var size = parts[1] ? ' '+parts[1].replace('55','5,5L').replace('25','2,5L') : '';
+      var label = name + size;
+      if (!byProducto[label]) byProducto[label] = {qty:0, importe:0};
+      byProducto[label].qty += it.qty || 0;
+      byProducto[label].importe += (it.qty||0)*(it.price||0);
+    });
+
+    // By mes
+    try {
+      var s = String(o.fecha).trim();
+      var d;
+      if (s.indexOf('/')>-1) { var p=s.split(' ')[0].split('/'); d=new Date(+p[2],+p[1]-1,+p[0]); }
+      else { var p=s.split('T')[0].split('-'); d=new Date(+p[0],+p[1]-1,+p[2]); }
+      var mesKey = d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2);
+      var mesLabel = d.toLocaleDateString('es-ES',{month:'short',year:'numeric'});
+      if (!byMes[mesKey]) byMes[mesKey] = {label:mesLabel, pedidos:0, importe:0};
+      byMes[mesKey].pedidos++;
+      byMes[mesKey].importe += orderTotal;
+    } catch(e){}
+  });
+
+  // Sort productos by importe desc
+  var topProductos = Object.entries(byProducto).sort(function(a,b){return b[1].importe-a[1].importe;}).slice(0,15);
+  var maxProd = topProductos[0] ? topProductos[0][1].importe : 1;
+
+  // Sort franquicias by importe desc
+  var sortedFranq = Object.entries(byFranquicia).sort(function(a,b){return b[1].importe-a[1].importe;});
+  var maxFranq = sortedFranq[0] ? sortedFranq[0][1].importe : 1;
+
+  // Sort meses
+  var sortedMes = Object.entries(byMes).sort(function(a,b){return a[0].localeCompare(b[0]);});
+  var maxMes = sortedMes.reduce(function(m,x){return Math.max(m,x[1].importe);},1);
+
+  // ── KPI cards ─────────────────────────────────────────────────────────────
+  var ticketMedio = orders.length ? (totalImporte/orders.length) : 0;
+  var kpiHtml =
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">' +
+    kpiCard('📦','Pedidos',orders.length,'') +
+    kpiCard('💶','Facturación',totalImporte.toFixed(2),' €') +
+    kpiCard('📊','Ticket medio',ticketMedio.toFixed(2),' €') +
+    '</div>';
+
+  // ── Franquicia ranking ────────────────────────────────────────────────────
+  var franqHtml = '<div style="background:#F7F9FC;border-radius:14px;padding:16px;margin-bottom:16px;">' +
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--navy);margin-bottom:12px;">🏪 Ranking franquicias</div>';
+  sortedFranq.forEach(function(e, i) {
+    var pct = Math.round(e[1].importe/maxFranq*100);
+    var medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    franqHtml +=
+      '<div style="margin-bottom:10px;">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:3px;">' +
+      '<span style="font-size:13px;font-weight:700;color:var(--navy);">'+medal+' '+e[0]+'</span>' +
+      '<span style="font-size:12px;color:var(--text-mid);">'+e[1].pedidos+' ped. · '+e[1].importe.toFixed(2)+' €</span></div>' +
+      '<div style="background:#E8EDF8;border-radius:20px;height:8px;">' +
+      '<div style="background:var(--navy);border-radius:20px;height:8px;width:'+pct+'%;transition:width .5s;"></div></div></div>';
+  });
+  franqHtml += '</div>';
+
+  // ── Comparativa franquicias ───────────────────────────────────────────────
+  var compHtml = '<div style="background:#F7F9FC;border-radius:14px;padding:16px;margin-bottom:16px;">' +
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--navy);margin-bottom:12px;">📊 Comparativa</div>' +
+    '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+    '<thead><tr style="background:var(--navy);color:#fff;">' +
+    '<th style="padding:8px;text-align:left;">Franquicia</th>' +
+    '<th style="padding:8px;text-align:center;">Pedidos</th>' +
+    '<th style="padding:8px;text-align:right;">Importe</th>' +
+    '<th style="padding:8px;text-align:right;">Ticket medio</th>' +
+    '<th style="padding:8px;text-align:right;">% total</th>' +
+    '</tr></thead><tbody>';
+  sortedFranq.forEach(function(e, i) {
+    var bg = i%2===0?'#fff':'#F7F9FC';
+    var pct = totalImporte>0?Math.round(e[1].importe/totalImporte*100):0;
+    var ticket = e[1].pedidos>0?(e[1].importe/e[1].pedidos).toFixed(2):0;
+    compHtml += '<tr style="background:'+bg+';">' +
+      '<td style="padding:7px 8px;font-weight:600;color:var(--navy);">'+e[0]+'</td>' +
+      '<td style="padding:7px 8px;text-align:center;">'+e[1].pedidos+'</td>' +
+      '<td style="padding:7px 8px;text-align:right;">'+e[1].importe.toFixed(2)+' €</td>' +
+      '<td style="padding:7px 8px;text-align:right;">'+ticket+' €</td>' +
+      '<td style="padding:7px 8px;text-align:right;font-weight:700;color:var(--navy);">'+pct+'%</td>' +
+      '</tr>';
+  });
+  compHtml += '<tr style="background:#1B2D6B;color:#F5C518;font-weight:800;">' +
+    '<td style="padding:8px;">TOTAL</td>' +
+    '<td style="padding:8px;text-align:center;">'+orders.length+'</td>' +
+    '<td style="padding:8px;text-align:right;">'+totalImporte.toFixed(2)+' €</td>' +
+    '<td style="padding:8px;text-align:right;">'+(orders.length?(totalImporte/orders.length).toFixed(2):0)+' €</td>' +
+    '<td style="padding:8px;text-align:right;">100%</td>' +
+    '</tr></tbody></table></div></div>';
+
+  // ── Top productos ─────────────────────────────────────────────────────────
+  var prodHtml = '<div style="background:#F7F9FC;border-radius:14px;padding:16px;margin-bottom:16px;">' +
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--navy);margin-bottom:12px;">🍦 Top 15 productos</div>';
+  topProductos.forEach(function(e, i) {
+    var pct = Math.round(e[1].importe/maxProd*100);
+    prodHtml +=
+      '<div style="margin-bottom:8px;">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:2px;">' +
+      '<span style="font-size:12px;color:var(--navy);font-weight:600;">'+(i+1)+'. '+e[0]+'</span>' +
+      '<span style="font-size:11px;color:var(--text-mid);">×'+e[1].qty+' · '+e[1].importe.toFixed(2)+' €</span></div>' +
+      '<div style="background:#E8EDF8;border-radius:20px;height:6px;">' +
+      '<div style="background:#F5C518;border-radius:20px;height:6px;width:'+pct+'%;"></div></div></div>';
+  });
+  prodHtml += '</div>';
+
+  // ── Evolución mensual ─────────────────────────────────────────────────────
+  var mesHtml = '';
+  if (sortedMes.length > 1) {
+    mesHtml = '<div style="background:#F7F9FC;border-radius:14px;padding:16px;margin-bottom:16px;">' +
+      '<div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--navy);margin-bottom:12px;">📈 Evolución mensual</div>' +
+      '<div style="display:flex;align-items:flex-end;gap:6px;height:80px;">';
+    sortedMes.forEach(function(e) {
+      var pct = Math.round(e[1].importe/maxMes*100);
+      mesHtml += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">' +
+        '<div style="font-size:9px;color:var(--text-mid);">'+e[1].importe.toFixed(0)+'€</div>' +
+        '<div style="width:100%;background:var(--navy);border-radius:4px 4px 0 0;height:'+pct+'%;" title="'+e[1].label+'"></div>' +
+        '<div style="font-size:9px;color:var(--text-mid);text-align:center;">'+e[1].label+'</div></div>';
+    });
+    mesHtml += '</div></div>';
+  }
+
+  // Render first, then attach listeners
+  var _statsHtml = periodHtml +
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:14px;color:var(--text-mid);margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em;">'+periodLabel+' · '+orders.length+' pedidos</div>' +
+    kpiHtml + franqHtml + compHtml + prodHtml + mesHtml;
+  el.innerHTML = _statsHtml;
+  el.querySelectorAll('.stats-period-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ setStatsPeriod(this.getAttribute('data-period')); });
+  });
 }
 
-// ── PWA ───────────────────────────────────────────────────────
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt',e=>{
-  e.preventDefault(); deferredPrompt=e;
-  document.getElementById('pwa-btn').style.display='flex';
-});
-window.addEventListener('appinstalled',()=>{ document.getElementById('pwa-btn').style.display='none'; });
+function kpiCard(icon, label, value, suffix) {
+  return '<div style="background:#F7F9FC;border-radius:12px;padding:14px;text-align:center;">' +
+    '<div style="font-size:22px;margin-bottom:4px;">'+icon+'</div>' +
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:900;color:var(--navy);">'+value+suffix+'</div>' +
+    '<div style="font-size:11px;color:var(--text-mid);text-transform:uppercase;letter-spacing:.05em;">'+label+'</div></div>';
+}
+
+function setStatsPeriod(p) {
+  window._statsPeriod = p;
+  renderStats();
+}
+
+
 function installPWA(){ if(deferredPrompt){ deferredPrompt.prompt(); deferredPrompt.userChoice.then(()=>{deferredPrompt=null;}); } }
 const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.MSStream;
 const isStandalone=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
