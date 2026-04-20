@@ -2117,7 +2117,7 @@ function shareWhatsApp() {
   var lines = [];
 
   // Header
-  lines.push('🍦🍦🍦 *PEDIDO CASSATA* 🍦🍦🍦');
+  lines.push('🍦 *PEDIDO CASSATA - Mundaka Helados*');
   lines.push('🏪 *Franquicia:* ' + hel);
   lines.push('📅 *Entrega:* ' + fechaStr);
   if (contacto) lines.push('👤 *Contacto:* ' + contacto);
@@ -2140,13 +2140,13 @@ function shareWhatsApp() {
   if (auxItems.length) {
     lines.push('📦 *Auxiliares:*');
     auxItems.forEach(function(x){
-      var name = x[0].replace('AUX|','').replace('PAN|','');
+      var name = x[0].replace('AUX|','').replace('PAN|','').split('|')[0];
       lines.push('• ' + name + ' × ' + x[1].qty);
     });
     lines.push('');
   }
 
-  lines.push('➖➖➖➖➖➖➖➖➖');
+  lines.push('〰️〰️〰️〰️〰️');
   lines.push('💶 *TOTAL (sin IVA): ' + total.toFixed(2) + ' €*');
 
   var msg = lines.join('\n');
