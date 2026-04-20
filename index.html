@@ -333,6 +333,13 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
     <button class="tab-btn" id="tab-pan" onclick="switchTab('pan')">🥐 Bollería</button>
     <button class="tab-btn" id="tab-aux" onclick="switchTab('aux')">📦 Auxiliares</button>
   </div>
+  <div style="position:relative;margin:12px 0 4px;">
+    <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;">🔍</span>
+    <input type="text" id="product-search" placeholder="Buscar producto..." autocomplete="off"
+      style="width:100%;padding:11px 14px 11px 40px;border:1.5px solid var(--border);border-radius:12px;font-family:'Barlow',sans-serif;font-size:15px;color:var(--navy);background:#fff;outline:none;box-sizing:border-box;">
+    <button id="search-clear" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:var(--gray);border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;line-height:22px;text-align:center;">✕</button>
+  </div>
+  <div id="search-results" style="display:none;"></div>
   <div id="panel-helados">
     <div class="nota">Precios PVP sin IVA. Helados en tarrina <strong>5,5 lt</strong> y <strong>2,5 lt</strong>. Granizados en formato <strong>5 lt y 10 lt</strong>.</div>
     <div class="card" id="product-list" style="padding:16px 18px;"></div>
@@ -1639,6 +1646,7 @@ window.addEventListener('load',function(){
   var bfp=document.getElementById('btn-fab-pin');if(bfp)bfp.addEventListener('click',function(){openFab();});
   // Load products
   loadFromSheet();
+  setTimeout(initSearch, 500);
 });
 
 // ── DATE HELPERS ──────────────────────────────────────────────────────────────
@@ -1762,6 +1770,168 @@ function loadPedidoAnterior(o) {
     setTimeout(function(){ toast.remove(); }, 4000);
   }, 300);
 }
+
+// ── PRODUCT SEARCH ───────────────────────────────────────────────────────────
+function initSearch() {
+  var input = document.getElementById('product-search');
+  var clear = document.getElementById('search-clear');
+  var results = document.getElementById('search-results');
+  if (!input) return;
+
+  input.addEventListener('input', function() {
+    var q = this.value.trim().toLowerCase();
+    clear.style.display = q ? 'block' : 'none';
+    if (!q) {
+      results.style.display = 'none';
+      // Restore normal panels
+      ['panel-helados','panel-aux','panel-pan'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) el.style.display = '';
+      });
+      switchTab(window._currentTab || 'helados');
+      return;
+    }
+    // Hide all panels, show search results
+    ['panel-helados','panel-aux','panel-pan'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    results.style.display = 'block';
+    renderSearchResults(q);
+  });
+
+  clear.addEventListener('click', function() {
+    input.value = '';
+    clear.style.display = 'none';
+    results.style.display = 'none';
+    ['panel-helados','panel-aux','panel-pan'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.style.display = '';
+    });
+    switchTab(window._currentTab || 'helados');
+    input.focus();
+  });
+}
+
+function renderSearchResults(q) {
+  var results = document.getElementById('search-results');
+  var found = [];
+
+  // Search in PRODUCTOS (helados)
+  (PRODUCTOS||[]).forEach(function(cat) {
+    (cat.items||[]).forEach(function(item) {
+      if (item.n.toLowerCase().indexOf(q) > -1) {
+        found.push({item:item, type:'helado', cat:cat.cat});
+      }
+    });
+  });
+
+  // Search in AUX
+  (AUX||[]).forEach(function(cat) {
+    (cat.items||[]).forEach(function(item) {
+      if (item.n.toLowerCase().indexOf(q) > -1) {
+        found.push({item:item, type:'aux', cat:cat.cat});
+      }
+    });
+  });
+
+  // Search in _PAN
+  (window._PAN||[]).forEach(function(cat) {
+    (cat.items||[]).forEach(function(item) {
+      if (item.n.toLowerCase().indexOf(q) > -1) {
+        found.push({item:item, type:'pan', cat:cat.cat});
+      }
+    });
+  });
+
+  if (!found.length) {
+    results.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-light);font-size:15px;">No se encontraron productos para "<strong>'+q+'</strong>"</div>';
+    return;
+  }
+
+  var html = '<div style="padding:8px 0 4px;font-size:12px;color:var(--text-light);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">'+found.length+' resultado'+(found.length>1?'s':'')+'</div>';
+
+  found.forEach(function(r) {
+    var item = r.item;
+    if (r.type === 'helado') {
+      var k55 = item.n+'|55', k25 = item.n+'|25';
+      var f1 = item.fmt1||'5,5L', f2 = item.fmt2||'2,5L';
+      var show25 = item.p25 && item.p25 > 0;
+      var noLabel = !show25 && /\d\s*[Ll]/.test(item.n);
+      html += '<div class="product-row">' +
+        '<span class="product-name">'+highlightMatch(item.n, q)+'<span style="font-size:11px;color:var(--text-light);margin-left:6px;">'+r.cat+'</span></span>' +
+        '<div class="size-group">' +
+        '<div class="size-row"><span class="size-tag">'+(noLabel?'':f1+' · ')+(item.p55?item.p55.toFixed(2)+'€':'—')+'</span>' +
+        '<div class="qty-control">' +
+        '<button class="qty-btn srch-btn" data-key="'+k55+'" data-delta="-1" data-price="'+(item.p55||0)+'">−</button>' +
+        '<span class="qty-num" id="s_'+safeId(k55)+'">0</span>' +
+        '<button class="qty-btn plus srch-btn" data-key="'+k55+'" data-delta="1" data-price="'+(item.p55||0)+'">+</button>' +
+        '</div></div>' +
+        (show25 ? '<div class="size-row"><span class="size-tag">'+f2+' · '+item.p25.toFixed(2)+'€</span>' +
+        '<div class="qty-control">' +
+        '<button class="qty-btn srch-btn" data-key="'+k25+'" data-delta="-1" data-price="'+item.p25+'">−</button>' +
+        '<span class="qty-num" id="s_'+safeId(k25)+'">0</span>' +
+        '<button class="qty-btn plus srch-btn" data-key="'+k25+'" data-delta="1" data-price="'+item.p25+'">+</button>' +
+        '</div></div>' : '') +
+        '</div></div>';
+    } else {
+      var prefix = r.type === 'aux' ? 'AUX|' : 'PAN|';
+      var key = prefix + item.n;
+      var pr = item.p || 0;
+      html += '<div class="product-row">' +
+        '<span class="product-name">'+highlightMatch(item.n, q)+'<span style="font-size:11px;color:var(--text-light);margin-left:6px;">'+r.cat+'</span></span>' +
+        '<div class="size-group"><div class="size-row">' +
+        '<span class="size-tag">'+(pr ? pr.toFixed(2)+'€' : 'Consultar')+'</span>' +
+        '<div class="qty-control">' +
+        '<button class="qty-btn srch-btn" data-key="'+key+'" data-delta="-1" data-price="'+pr+'">−</button>' +
+        '<span class="qty-num" id="s_'+safeId(key)+'">0</span>' +
+        '<button class="qty-btn plus srch-btn" data-key="'+key+'" data-delta="1" data-price="'+pr+'">+</button>' +
+        '</div></div></div></div>';
+    }
+  });
+
+  results.innerHTML = html;
+  // Sync qty displays with current qtys
+  Object.keys(qtys||{}).forEach(function(k) {
+    var el = document.getElementById('s_'+safeId(k));
+    if (el && qtys[k].qty > 0) {
+      el.textContent = qtys[k].qty;
+      el.classList.add('has-qty');
+    }
+  });
+  // Add click handlers via event delegation
+  results.querySelectorAll('.srch-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var key = this.getAttribute('data-key');
+      var delta = parseInt(this.getAttribute('data-delta'));
+      var price = parseFloat(this.getAttribute('data-price'));
+      chg(key, delta, price);
+      // Update search result display
+      var span = document.getElementById('s_'+safeId(key));
+      if (span) {
+        var qty = qtys[key] ? qtys[key].qty : 0;
+        span.textContent = qty;
+        span.classList.toggle('has-qty', qty > 0);
+      }
+    });
+  });
+}
+
+function highlightMatch(text, q) {
+  var idx = text.toLowerCase().indexOf(q);
+  if (idx < 0) return text;
+  return text.substring(0, idx) +
+    '<mark style="background:#FEF3C7;color:#1B2D6B;border-radius:3px;padding:0 2px;">'+text.substring(idx, idx+q.length)+'</mark>' +
+    text.substring(idx + q.length);
+}
+
+// Track current tab for restoring after search
+var _origSwitchTab = switchTab;
+switchTab = function(t) {
+  window._currentTab = t;
+  _origSwitchTab(t);
+};
 
 // ── AUTO-REFRESH ──────────────────────────────────────────────────────────────
 var _prevStatuses = {};
