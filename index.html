@@ -792,13 +792,20 @@ async function sendOrder(){
   const items=getItems();
   const total=getTotal();
 
-  // Send to Google Sheets via fetch POST (no size limit)
+  // Send to Google Sheets - fire and forget (no-cors, no await)
+  var FRANQ_PREFIX2 = {'Cassata Elda':'ELD','Cassata Petrer':'PET','Cassata Villena':'VIL','Cassata Alicante PAU5':'PAU','Cassata Toledo':'TOL','Otra franquicia':'OTR'};
+  var fpx2 = FRANQ_PREFIX2[heladeria]||'PED';
+  var fmx2 = 0;
+  (typeof fabOrders!=='undefined'?fabOrders:[]).forEach(function(o){if(o.id&&o.id.startsWith(fpx2+'-')){var n=parseInt(o.id.split('-')[1])||0;if(n>fmx2)fmx2=n;}});
+  var orderId = fpx2+'-'+String(fmx2+1).padStart(3,'0');
+
   try {
-    await fetch('https://script.google.com/macros/s/AKfycbz-wykdfy_EvahnPGunLlykdRjrXmp8Mv1sn1tecs2r4i5EaOhTR1axyrvSbahH0r0_dQ/exec', {
+    fetch('https://script.google.com/macros/s/AKfycbzGuWJb9aFwwQrV8szcB8dPK6TRip1vgqzWWOmJ8nOiWlPp1xdYr77D8K_ibXWI0h83Dg/exec', {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
+      mode: 'no-cors',
       body: JSON.stringify({
-        action: 'save',
+        action: 'save_with_id',
+        id: orderId,
         heladeria: heladeria,
         contacto: contacto,
         telefono: telefono,
