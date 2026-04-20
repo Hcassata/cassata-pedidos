@@ -485,7 +485,17 @@ const FESTIVOS   = new Set([
 // ── HELPERS ─────────────────────────────────────────────────
 function isoDate(d){ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+dd; }
 function isHabil(d){ const w=d.getDay(); return w!==0&&w!==6&&!FESTIVOS.has(isoDate(d)); }
-function minFecha(){ const d=new Date(); d.setHours(0,0,0,0); let c=0; while(c<3){ d.setDate(d.getDate()+1); if(isHabil(d))c++; } while(!isHabil(d)) d.setDate(d.getDate()+1); return new Date(d); }
+function minFecha(){
+  const now = new Date();
+  const d = new Date();
+  d.setHours(0,0,0,0);
+  // If order placed after 12:00, today doesn't count — need 1 extra day
+  const diasMin = now.getHours() >= 12 ? 4 : 3;
+  let c = 0;
+  while(c < diasMin){ d.setDate(d.getDate()+1); if(isHabil(d))c++; }
+  while(!isHabil(d)) d.setDate(d.getDate()+1);
+  return new Date(d);
+}
 function safeId(k){ return 'q_'+k.replace(/[^a-z0-9]/gi,'_'); }
 function fmtDate(iso){ if(!iso) return '—'; try{ const p=iso.split('-'); const d=new Date(+p[0],+p[1]-1,+p[2]); return d.toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'}); }catch(e){return iso;} }
 
