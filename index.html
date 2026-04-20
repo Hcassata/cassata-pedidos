@@ -2117,16 +2117,16 @@ function shareWhatsApp() {
   var lines = [];
 
   // Header
-  lines.push('🍦 *PEDIDO CASSATA - Mundaka Helados*');
-  lines.push('🏪 *Franquicia:* ' + hel);
-  lines.push('📅 *Entrega:* ' + fechaStr);
-  if (contacto) lines.push('👤 *Contacto:* ' + contacto);
+  lines.push('*PEDIDO CASSATA* 🍦');
+  lines.push('*Franquicia:* ' + hel);
+  lines.push('*Entrega:* ' + fechaStr);
+  if (contacto) lines.push('*Contacto:* ' + contacto);
   lines.push('');
 
   // Helados
   var helItems = items.filter(function(x){return !x[0].startsWith('AUX|') && !x[0].startsWith('PAN|');});
   if (helItems.length) {
-    lines.push('🍦 *Helados:*');
+    lines.push('*HELADOS*');
     helItems.forEach(function(x){
       var parts = x[0].split('|'), name = parts[0], size = parts[1];
       var fmt = size==='55'?'5,5L':size==='25'?'2,5L':'';
@@ -2138,7 +2138,7 @@ function shareWhatsApp() {
   // Auxiliares y bollería
   var auxItems = items.filter(function(x){return x[0].startsWith('AUX|') || x[0].startsWith('PAN|');});
   if (auxItems.length) {
-    lines.push('📦 *Auxiliares:*');
+    lines.push('*AUXILIARES*');
     auxItems.forEach(function(x){
       var name = x[0].replace('AUX|','').replace('PAN|','').split('|')[0];
       lines.push('• ' + name + ' × ' + x[1].qty);
@@ -2146,8 +2146,8 @@ function shareWhatsApp() {
     lines.push('');
   }
 
-  lines.push('〰️〰️〰️〰️〰️');
-  lines.push('💶 *TOTAL (sin IVA): ' + total.toFixed(2) + ' €*');
+  lines.push('---');
+  lines.push('*TOTAL (sin IVA): ' + total.toFixed(2) + ' €*');
 
   var msg = lines.join('\n');
   var url = 'https://wa.me/?text=' + encodeURIComponent(msg);
