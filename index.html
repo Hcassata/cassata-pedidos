@@ -655,7 +655,7 @@ function getItems(){ return Object.entries(qtys).filter(([k,v])=>v.qty>0); }
 function getTotal(){ return getItems().reduce((s,[k,v])=>s+v.qty*v.price,0); }
 
 // ── BUILD PRODUCT LISTS ───────────────────────────────────────
-function buildList(cats, containerId){
+function _baseBuildList(cats, containerId){
   let html='';
   cats.forEach(cat=>{
     html+=`<div class="cat-header"><span class="cat-icon">${cat.cat.split(' ')[0]}</span><span class="cat-name">${cat.cat.replace(/^[^ ]+ /,'')}</span></div>`;
@@ -1967,10 +1967,10 @@ function highlightMatch(text, q) {
 }
 
 // Track current tab for restoring after search
-var _origSwitchTab = switchTab;
+var _baseSwitchTab = switchTab;
 switchTab = function(t) {
   window._currentTab = t;
-  _origSwitchTab(t);
+  _baseSwitchTab(t);
 };
 
 // ── FAVORITOS ────────────────────────────────────────────────────────────────
@@ -2000,13 +2000,12 @@ function toggleFav(key) {
   buildAll();
 }
 
-// Override buildList to prepend favorites
-var _origBuildList = buildList;
+// buildList wraps _baseBuildList with favorites support
 function buildList(cats, containerId) {
   var favs = getFavs();
-  if (!favs.length) { _origBuildList(cats, containerId); return; }
+  if (!favs.length) { _baseBuildList(cats, containerId); return; }
   var container = document.getElementById(containerId);
-  if (!container) { _origBuildList(cats, containerId); return; }
+  if (!container) { _baseBuildList(cats, containerId); return; }
 
   // Collect all items
   var allItems = [];
