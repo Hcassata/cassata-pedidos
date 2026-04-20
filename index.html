@@ -474,7 +474,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 
 <script>
 window._noop = function(){};
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzL-EhFkRrTC02cd3NDWZjEfVeSeUBt1uMXvMg6gYXiFjJlUaj7-hwtWaGEv7zA_etiqQ/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzGuWJb9aFwwQrV8szcB8dPK6TRip1vgqzWWOmJ8nOiWlPp1xdYr77D8K_ibXWI0h83Dg/exec';
 const FAB_PWD    = 'cassata2025';
 const MESES      = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const FESTIVOS   = new Set([
@@ -1085,15 +1085,40 @@ async function backToList(){
   await fabRefresh();
 }
 
-async function setStatus(idx,status){
-  const o=fabOrders[idx];
-  try{
-    const fd=new FormData();
-    fd.append('data',JSON.stringify({action:'status',id:o.id,status}));
-    await fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:fd});
-  }catch(e){console.warn(e);}
-  fabOrders[idx].status=status;
-  updateBadge(); showDetail(idx);
+async function setStatus(idx, status) {
+  const o = fabOrders[idx];
+  // Show message dialog before confirming
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(27,45,107,.6);z-index:800;display:flex;align-items:center;justify-content:center;padding:20px;';
+  const icon = status === 'Preparado' ? '✓' : '🚚';
+  const color = status === 'Preparado' ? '#065F46' : '#1E3A8A';
+  const bg = status === 'Preparado' ? '#D1FAE5' : '#DBEAFE';
+  modal.innerHTML = `<div style="background:#fff;border-radius:20px;width:100%;max-width:400px;padding:24px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--navy);margin-bottom:6px;">${icon} Marcar como ${status}</div>
+    <div style="font-size:13px;color:var(--text-mid);margin-bottom:16px;">Pedido de <strong>${o.heladeria}</strong> · Entrega ${fmtDate(o.fecha)}</div>
+    <label style="font-size:13px;font-weight:700;color:var(--navy);display:block;margin-bottom:6px;">Mensaje para el franquiciado <span style="font-weight:400;color:var(--text-light);">(opcional)</span></label>
+    <textarea id="status-msg" placeholder="Ej: Sale el martes con el camión de Petrer&#10;Ej: Falta el Pistacho, lo enviamos la semana que viene" 
+      style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'Barlow',sans-serif;font-size:14px;resize:none;height:90px;box-sizing:border-box;outline:none;color:var(--navy);" rows="3"></textarea>
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <button id="status-cancel" style="flex:1;padding:13px;border:1.5px solid var(--border);background:#fff;border-radius:12px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;cursor:pointer;color:var(--navy);">Cancelar</button>
+      <button id="status-confirm" style="flex:2;padding:13px;background:var(--navy);color:#fff;border:none;border-radius:12px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;cursor:pointer;">${icon} Confirmar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('status-cancel').addEventListener('click', function(){ modal.remove(); });
+  document.getElementById('status-confirm').addEventListener('click', async function(){
+    const msg = document.getElementById('status-msg').value.trim();
+    modal.remove();
+    try {
+      const fd = new FormData();
+      fd.append('data', JSON.stringify({action:'status', id:o.id, status:status, mensaje:msg}));
+      await fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', body:fd});
+    } catch(e){ console.warn(e); }
+    fabOrders[idx].status = status;
+    if (msg) fabOrders[idx].mensaje = msg;
+    updateBadge();
+    showDetail(idx);
+  });
 }
 
 function dlExcel(idx){
@@ -1487,7 +1512,7 @@ function loadMisPedidos(silent) {
     delete window[cb]; s.remove();
     if(!silent) el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);">Error de conexión</div>';
   };
-  s.src='https://script.google.com/macros/s/AKfycbzL-EhFkRrTC02cd3NDWZjEfVeSeUBt1uMXvMg6gYXiFjJlUaj7-hwtWaGEv7zA_etiqQ/exec?action=list&callback='+cb+'&t='+Date.now();
+  s.src='https://script.google.com/macros/s/AKfycbzGuWJb9aFwwQrV8szcB8dPK6TRip1vgqzWWOmJ8nOiWlPp1xdYr77D8K_ibXWI0h83Dg/exec?action=list&callback='+cb+'&t='+Date.now();
   document.body.appendChild(s);
 }
 
@@ -1516,6 +1541,7 @@ function showOrderModal(o, canDownload) {
     '<span class="order-status '+sc+'" style="margin-top:4px;display:inline-block;">'+si+'</span></div>' +
     '<button class="modal-close-btn" style="background:var(--gray);border:none;border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer;flex-shrink:0;">✕</button></div>' +
     '<div class="info-strip" style="margin-bottom:14px;"><span>🏪 <strong>'+o.heladeria+'</strong></span>'+(o.contacto?'<span>👤 <strong>'+o.contacto+'</strong></span>':'')+(o.telefono?'<span>📞 <strong>'+o.telefono+'</strong></span>':'')+'</div>' +
+    (o.mensaje?'<div style="background:#FFF8E0;border-left:4px solid #F5C518;border-radius:0 10px 10px 0;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#7A6010;">💬 <strong>Mensaje de fábrica:</strong> '+o.mensaje+'</div>':'')+
     '<div class="card" style="padding:16px 18px;margin-bottom:0;">'+ihtml+'</div>'+dlBtn+'</div>';
   modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
   document.body.appendChild(modal);
