@@ -810,7 +810,7 @@ async function sendOrder(){
     });
   } catch(e) { console.warn('Sheet error:', e); }
 
-  try{var fn=heladeria.replace(/^cassata\s*/i,'');var fc=fecha?new Date(fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}):'';fetch('https://ntfy.sh/cassata-pedidos-jmgil',{method:'POST',headers:{'Title':'🍦 Pedido Cassata '+fn,'Priority':'high','Tags':'icecream'},body:'Entrega: '+fc+(contacto?' · '+contacto:'')});}catch(e){}
+  try{var fn=heladeria.replace(/^cassata\s*/i,'');var fc=fecha?new Date(fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}):'';fetch('https://ntfy.sh/cassata-pedidos-jmgil',{method:'POST',headers:{'Title':'Pedido Cassata '+fn,'Priority':'high','Tags':'icecream'},body:'Entrega: '+fc+(contacto?' · '+contacto:'')});}catch(e){}
   // NOW download CSV (after sheet is already sent)
   // Generate client-side order reference
   var FRANQ_PREFIX = {'Cassata Elda':'ELD','Cassata Petrer':'PET','Cassata Villena':'VIL','Cassata Alicante PAU5':'PAU','Cassata Toledo':'TOL'};
