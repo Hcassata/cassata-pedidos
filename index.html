@@ -862,20 +862,22 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
   }
 
   var helRows='',auxRows='';
+  // Sort helados alphabetically
+  helItems.sort(function(a,b){ return a[0].split('|')[0].localeCompare(b[0].split('|')[0],'es'); });
   helItems.forEach(function(x,ri){
     var key=x[0],v=x[1];
     var parts=key.split('|'),name=parts[0],size=parts[1];
     var fmt=size==='55'?'5,5 L':size==='25'?'2,5 L':'';
-    var bg=ri%2===0?'#ffffff':'#F0F4FA';
-    var checkbox='<td style="padding:6px 10px;text-align:center;background:'+bg+';border-bottom:1px solid #EEF1F7;"><div style="width:18px;height:18px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
+    var bg=ri%2===0?'#ffffff':'#DCE8F5';
+    var checkbox='<td style="padding:3px 8px;text-align:center;background:'+bg+';border-bottom:1px solid #EEF1F7;"><div style="width:16px;height:16px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
     helRows+='<tr>'+td(name,'left',true,null,bg)+td(fmt,'center',false,null,bg)+td(v.qty,'center',true,null,bg)+checkbox+td(v.price.toFixed(2)+' €','right',false,null,bg)+td((v.qty*v.price).toFixed(2)+' €','right',true,null,bg)+'</tr>';
   });
   auxItems.forEach(function(x,ri){
     var key=x[0],v=x[1];
     var name=key.replace('AUX|','').replace('PAN|','');
     var tot=v.price>0?(v.qty*v.price).toFixed(2)+' €':'--';
-    var bg=ri%2===0?'#ffffff':'#F0F4FA';
-    var checkbox='<td style="padding:6px 10px;text-align:center;background:'+bg+';border-bottom:1px solid #EEF1F7;"><div style="width:18px;height:18px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
+    var bg=ri%2===0?'#ffffff':'#DCE8F5';
+    var checkbox='<td style="padding:3px 8px;text-align:center;background:'+bg+';border-bottom:1px solid #EEF1F7;"><div style="width:16px;height:16px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
     auxRows+='<tr>'+td(name,'left',true,null,bg)+td('--','center',false,null,bg)+td(v.qty,'center',true,null,bg)+checkbox+td(v.price>0?v.price.toFixed(2)+' €':'Consultar','right',false,null,bg)+td(tot,'right',true,null,bg)+'</tr>';
   });
 
