@@ -854,8 +854,8 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
   function th(t,align,bg,color){
     return '<th style="padding:4px 7px;text-align:'+(align||'left')+';background:'+(bg||'#1B2D6B')+';color:'+(color||'#fff')+';font-size:9px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;">'+t+'</th>';
   }
-  function td(t,align,bold,color){
-    return '<td style="padding:3px 7px;text-align:'+(align||'left')+';font-weight:'+(bold?700:400)+';color:'+(color||'#1B2D6B')+';font-size:10px;border-bottom:1px solid #EEF1F7;">'+t+'</td>';
+  function td(t,align,bold,color,bg){
+    return '<td style="background:'+(bg||'#fff')+';padding:2px 7px;text-align:'+(align||'left')+';font-weight:'+(bold?700:400)+';color:'+(color||'#1B2D6B')+';font-size:10px;border-bottom:1px solid #D0DBF0;">'+t+'</td>';
   }
   function tableHeader(bg){
     return '<thead><tr>'+th('Producto','left',bg)+th('Formato','center',bg)+th('Cantidad','center',bg)+th('P. Unit.','right',bg)+th('Total','right',bg)+'</tr></thead>';
@@ -868,16 +868,16 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
     var key=x[0],v=x[1];
     var parts=key.split('|'),name=parts[0],size=parts[1];
     var fmt=size==='55'?'5,5 L':size==='25'?'2,5 L':'';
-    var bg=ri%2===0?'#ffffff':'#DCE8F5';
-    var checkbox='<td style="padding:3px 8px;text-align:center;background:'+bg+';border-bottom:1px solid #EEF1F7;"><div style="width:16px;height:16px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
+    var bg=ri%2===0?'#ffffff':'#EEF4FB';
+    var checkbox='<td style="padding:2px 5px;text-align:center;background:'+bg+';border-bottom:1px solid #D0DBF0;"><div style="width:16px;height:16px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
     helRows+='<tr>'+td(name,'left',true,null,bg)+td(fmt,'center',false,null,bg)+td(v.qty,'center',true,null,bg)+checkbox+td(v.price.toFixed(2)+' €','right',false,null,bg)+td((v.qty*v.price).toFixed(2)+' €','right',true,null,bg)+'</tr>';
   });
   auxItems.forEach(function(x,ri){
     var key=x[0],v=x[1];
     var name=key.replace('AUX|','').replace('PAN|','');
     var tot=v.price>0?(v.qty*v.price).toFixed(2)+' €':'--';
-    var bg=ri%2===0?'#ffffff':'#DCE8F5';
-    var checkbox='<td style="padding:3px 8px;text-align:center;background:'+bg+';border-bottom:1px solid #EEF1F7;"><div style="width:16px;height:16px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
+    var bg=ri%2===0?'#ffffff':'#EEF4FB';
+    var checkbox='<td style="padding:2px 5px;text-align:center;background:'+bg+';border-bottom:1px solid #D0DBF0;"><div style="width:16px;height:16px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
     auxRows+='<tr>'+td(name,'left',true,null,bg)+td('--','center',false,null,bg)+td(v.qty,'center',true,null,bg)+checkbox+td(v.price>0?v.price.toFixed(2)+' €':'Consultar','right',false,null,bg)+td(tot,'right',true,null,bg)+'</tr>';
   });
 
