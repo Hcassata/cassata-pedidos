@@ -799,23 +799,29 @@ async function sendOrder(){
   (typeof fabOrders!=='undefined'?fabOrders:[]).forEach(function(o){if(o.id&&o.id.startsWith(fpx2+'-')){var n=parseInt(o.id.split('-')[1])||0;if(n>fmx2)fmx2=n;}});
   var orderId = fpx2+'-'+String(fmx2+1).padStart(3,'0');
 
+  var _payload = JSON.stringify({
+    action: 'save_with_id',
+    id: orderId,
+    heladeria: heladeria,
+    contacto: contacto,
+    telefono: telefono,
+    fecha_servicio: fecha,
+    observaciones: obs,
+    total: total,
+    items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
+  });
+  var _url = 'https://script.google.com/macros/s/AKfycbxzNxSZOhmQB0A0mg_Z8IHamJ7YpzI6lLvgywQnDdrUKEEKhJQRtnkB2b4DnQDmKUyWxg/exec';
+  // Use sendBeacon for iOS reliability, fallback to fetch
   try {
-    fetch('https://script.google.com/macros/s/AKfycbxzNxSZOhmQB0A0mg_Z8IHamJ7YpzI6lLvgywQnDdrUKEEKhJQRtnkB2b4DnQDmKUyWxg/exec', {
-      method: 'POST',
-      mode: 'no-cors',
-      body: JSON.stringify({
-        action: 'save_with_id',
-        id: orderId,
-        heladeria: heladeria,
-        contacto: contacto,
-        telefono: telefono,
-        fecha_servicio: fecha,
-        observaciones: obs,
-        total: total,
-        items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
-      })
-    });
-  } catch(e) { console.warn('Sheet error:', e); }
+    if (navigator.sendBeacon) {
+      var blob = new Blob([_payload], {type: 'text/plain'});
+      navigator.sendBeacon(_url, blob);
+    } else {
+      fetch(_url, {method:'POST', mode:'no-cors', body:_payload});
+    }
+  } catch(e) {
+    try { fetch(_url, {method:'POST', mode:'no-cors', body:_payload}); } catch(e2) { console.warn(e2); }
+  }
 
   try{var fn=heladeria.replace(/^cassata\s*/i,'');var fc=fecha?new Date(fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}):'';fetch('https://ntfy.sh/cassata-pedidos-jmgil',{method:'POST',headers:{'Title':'Pedido Cassata '+fn,'Priority':'high','Tags':'icecream'},body:'Entrega: '+fc+(contacto?' · '+contacto:'')});}catch(e){}
   // NOW download CSV (after sheet is already sent)
