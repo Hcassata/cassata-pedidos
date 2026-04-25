@@ -936,6 +936,13 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
     out+='<tbody>'+helRows+'</tbody></table>';
   }
 
+  // ── BOLLERÍA TABLE ──
+  if(panRows){
+    out+='<table style="margin-top:8px;border:1px solid #E8EDF8;">';
+    out+='<thead><tr><td colspan="6" style="padding:7px 10px;background:#5C4A8F;color:#fff;font-weight:800;font-size:11px;letter-spacing:1px;text-transform:uppercase;">🥐 Bollería</td></tr>';
+    out+='<tr>'+th('Producto','left','#5C4A8F')+th('Formato','center','#5C4A8F')+th('Cantidad','center','#5C4A8F')+th('✓','center','#5C4A8F')+th('P. Unit.','right','#5C4A8F')+th('Total','right','#5C4A8F')+'</tr></thead>';
+    out+='<tbody>'+panRows+'</tbody></table>';
+  }
   // ── AUXILIARES TABLE ──
   if(auxRows){
     out+='<table style="margin-top:8px;border:1px solid #E8EDF8;">';
