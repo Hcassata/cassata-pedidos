@@ -855,8 +855,13 @@ function sendOrder(){
 function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt){
   var fStr=fmtDate(fecha);
   var now=new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  var helItems=items.filter(function(x){return !x[0].startsWith('AUX|');});
+  var panItems=items.filter(function(x){return x[0].startsWith('PAN|');});
   var auxItems=items.filter(function(x){return x[0].startsWith('AUX|');});
+  var nonAux=items.filter(function(x){return !x[0].startsWith('AUX|')&&!x[0].startsWith('PAN|');});
+  var heladosIt=nonAux.filter(function(x){var n=x[0].split('|')[0].toLowerCase();return n.indexOf('granizado')<0&&n.indexOf('horchata')<0&&n.indexOf('agua cebada')<0&&n.indexOf('leche preparada')<0;});
+  var granizIt=nonAux.filter(function(x){var n=x[0].split('|')[0].toLowerCase();return n.indexOf('granizado')>=0||n.indexOf('horchata')>=0||n.indexOf('agua cebada')>=0||n.indexOf('leche preparada')>=0;});
+  heladosIt.sort(function(a,b){return a[0].split('|')[0].localeCompare(b[0].split('|')[0],'es');});
+  var helItems=heladosIt.concat(granizIt);
   // Calculate total from items directly as most reliable method
   var total = 0;
   helItems.forEach(function(x){ total += (parseFloat(x[1].qty)||0) * (parseFloat(x[1].price)||0); });
