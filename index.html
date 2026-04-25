@@ -834,17 +834,21 @@ function sendOrder(){
   var pedNum = prefix + '-' + String(now.getFullYear()).slice(2) + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2) + '-' + ('0'+now.getHours()).slice(-2) + ('0'+now.getMinutes()).slice(-2);
   // Calculate total directly from items array
   var csvTotal = items.reduce(function(s,x){return s+x[1].qty*x[1].price;},0);
-  const csv=generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,csvTotal);
-  const helNom=heladeria.replace(/[^a-zA-Z0-9-]/g,'-');
-  downloadCSV(csv,`Pedido_Cassata_${helNom}_${fecha.replace(/-/g,'')}.html`);
-
-  // Show success
+  // Show success immediately - don't wait for download
   document.getElementById('success-resumen').innerHTML=document.getElementById('resumen-card').innerHTML;
   show('s3','s4');
   document.getElementById('bottom-bar').style.display='none';
   var wabtn = document.getElementById('btn-whatsapp');
   if (wabtn) { wabtn.onclick = shareWhatsApp; }
   document.querySelectorAll('.step-item').forEach(d=>{d.classList.remove('active');d.classList.add('done');});
+
+  // Download CSV after a short delay (avoids blocking UI on iOS)
+  var _items=items, _hel=heladeria, _con=contacto, _tel=telefono, _fec=fecha, _obs=obs, _pn=pedNum, _ct=csvTotal;
+  setTimeout(function(){
+    var csv=generateCSV(_items,_hel,_con,_tel,_fec,_obs,_pn,_ct);
+    var helNom=_hel.replace(/[^a-zA-Z0-9-]/g,'-');
+    downloadCSV(csv,'Pedido_Cassata_'+helNom+'_'+_fec.replace(/-/g,'')+'.html');
+  }, 300);
 }
 
 // ── CSV DOWNLOAD ──────────────────────────────────────────────
