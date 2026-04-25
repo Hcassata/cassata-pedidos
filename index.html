@@ -878,7 +878,7 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
     return '<thead><tr>'+th('Producto','left',bg)+th('Formato','center',bg)+th('Cantidad','center',bg)+th('P. Unit.','right',bg)+th('Total','right',bg)+'</tr></thead>';
   }
 
-  var helRows='',auxRows='';
+  var helRows='',panRows='',auxRows='';
   // Sort helados alphabetically
   helItems.sort(function(a,b){ return a[0].split('|')[0].localeCompare(b[0].split('|')[0],'es'); });
   helItems.forEach(function(x,ri){
@@ -888,6 +888,14 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
     var bg=ri%2===0?'#ffffff':'#EEF4FB';
     var checkbox='<td style="-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:2px 5px;text-align:center;background:'+bg+' !important;border-bottom:1px solid #D0DBF0;"><div style="width:16px;height:16px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
     helRows+='<tr>'+td(name,'left',true,null,bg)+td(fmt,'center',false,null,bg)+td(v.qty,'center',true,null,bg)+checkbox+td(v.price.toFixed(2)+' €','right',false,null,bg)+td((v.qty*v.price).toFixed(2)+' €','right',true,null,bg)+'</tr>';
+  });
+  panItems.forEach(function(x,ri){
+    var key=x[0],v=x[1];
+    var name=key.replace('PAN|','').split('|')[0];
+    var tot=v.price>0?(v.qty*v.price).toFixed(2)+' €':'--';
+    var bg=ri%2===0?'#ffffff':'#EEF4FB';
+    var checkbox='<td style="-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:2px 5px;text-align:center;background:'+bg+' !important;border-bottom:1px solid #D0DBF0;"><div style="width:16px;height:16px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
+    panRows+='<tr>'+td(name,'left',true,null,bg)+td('--','center',false,null,bg)+td(v.qty,'center',true,null,bg)+checkbox+td(v.price>0?v.price.toFixed(2)+' €':'Consultar','right',false,null,bg)+td(tot,'right',true,null,bg)+'</tr>';
   });
   auxItems.forEach(function(x,ri){
     var key=x[0],v=x[1];
