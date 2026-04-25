@@ -332,6 +332,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 <div class="screen" id="s2">
   <p class="sec-title">Selecciona productos</p>
   <p class="sec-sub">Usa + y − para añadir las unidades que necesitas.</p>
+  <button id="btn-ai-assistant" onclick="openAiAssistant()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 20px;background:linear-gradient(135deg,#1B2D6B,#2A4A9E);color:#fff;border:none;border-radius:14px;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;cursor:pointer;touch-action:manipulation;margin-bottom:12px;box-shadow:0 4px 15px rgba(27,45,107,0.3);"><span style="font-size:20px;">🤖</span> Asistente de pedido con IA</button>
   <div class="tab-row">
     <button class="tab-btn active" id="tab-helados" onclick="switchTab('helados')">🍦 Helados</button>
     <button class="tab-btn" id="tab-pan" onclick="switchTab('pan')">🥐 Bollería</button>
@@ -388,6 +389,34 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
         Compartir por WhatsApp
       </button>
       <button class="new-order-btn" onclick="resetApp()">Nuevo pedido</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- AI ASSISTANT MODAL -->
+<div id="ai-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,20,60,0.7);z-index:900;backdrop-filter:blur(4px);">
+  <div style="position:absolute;bottom:0;left:0;right:0;max-height:90vh;background:#fff;border-radius:24px 24px 0 0;display:flex;flex-direction:column;overflow:hidden;">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#1B2D6B,#2A4A9E);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;background:rgba(245,197,24,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;">🤖</div>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:#fff;">Asistente Cassata</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.7);">Powered by Claude AI</div>
+        </div>
+      </div>
+      <button onclick="closeAiAssistant()" style="background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>
+    <!-- Messages -->
+    <div id="ai-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:200px;max-height:50vh;-webkit-overflow-scrolling:touch;"></div>
+    <!-- Suggestions -->
+    <div id="ai-suggestions" style="padding:0 16px 8px;display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;"></div>
+    <!-- Input -->
+    <div style="padding:12px 16px 20px;display:flex;gap:10px;flex-shrink:0;border-top:1px solid #EEF1F7;background:#fff;">
+      <input id="ai-input" type="text" placeholder="Escribe tu pedido en lenguaje natural..." autocomplete="off"
+        style="flex:1;padding:12px 16px;border:1.5px solid #E2E8F0;border-radius:12px;font-family:'Barlow',sans-serif;font-size:15px;color:#1B2D6B;outline:none;background:#F7F9FC;">
+      <button id="ai-send-btn" onclick="sendAiMessage()" style="padding:12px 20px;background:#1B2D6B;color:#fff;border:none;border-radius:12px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;cursor:pointer;flex-shrink:0;">Enviar</button>
     </div>
   </div>
 </div>
@@ -2175,6 +2204,232 @@ function shareWhatsApp() {
   var url = 'https://wa.me/?text=' + encodeURIComponent(msg);
   window.open(url, '_blank');
 }
+
+// ── AI ASSISTANT ─────────────────────────────────────────────────────────────
+var _aiHistory = [];
+var _aiThinking = false;
+
+function openAiAssistant() {
+  document.getElementById('ai-modal').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  if (_aiHistory.length === 0) {
+    // Welcome message
+    var franq = window.currentFranquicia ? window.currentFranquicia.nombre : 'tu franquicia';
+    _addAiMessage('assistant', '¡Hola! 👋 Soy tu asistente de pedidos de Cassata. Puedo ayudarte a preparar tu pedido de forma rápida.\n\nDime qué necesitas en lenguaje natural, por ejemplo:\n• "Ponme lo mismo que el mes pasado"\n• "4 chocolates en 5,5L y 2 natas"\n• "El pedido habitual pero sin pistacho"');
+    _showSuggestions(['Repetir último pedido', '¿Qué tenéis disponible?', 'Ayúdame a hacer un pedido']);
+  }
+  setTimeout(function(){ document.getElementById('ai-input').focus(); }, 300);
+}
+
+function closeAiAssistant() {
+  document.getElementById('ai-modal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function _addAiMessage(role, text) {
+  var messages = document.getElementById('ai-messages');
+  var isUser = role === 'user';
+  var div = document.createElement('div');
+  div.style.cssText = 'display:flex;justify-content:'+(isUser?'flex-end':'flex-start')+';';
+  var bubble = document.createElement('div');
+  bubble.style.cssText = 'max-width:85%;padding:10px 14px;border-radius:'+(isUser?'16px 16px 4px 16px':'16px 16px 16px 4px')+
+    ';background:'+(isUser?'#1B2D6B':'#F7F9FC')+';color:'+(isUser?'#fff':'#1B2D6B')+
+    ';font-size:14px;line-height:1.5;white-space:pre-wrap;box-shadow:0 1px 3px rgba(0,0,0,0.1);';
+  bubble.textContent = text;
+  div.appendChild(bubble);
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  return bubble;
+}
+
+function _showThinking() {
+  var messages = document.getElementById('ai-messages');
+  var div = document.createElement('div');
+  div.id = 'ai-thinking';
+  div.style.cssText = 'display:flex;justify-content:flex-start;';
+  div.innerHTML = '<div style="padding:10px 16px;background:#F7F9FC;border-radius:16px 16px 16px 4px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">'+
+    '<span style="display:inline-flex;gap:4px;">'+
+    '<span style="width:6px;height:6px;background:#1B2D6B;border-radius:50%;animation:aiDot 1.2s infinite;"></span>'+
+    '<span style="width:6px;height:6px;background:#1B2D6B;border-radius:50%;animation:aiDot 1.2s infinite .2s;"></span>'+
+    '<span style="width:6px;height:6px;background:#1B2D6B;border-radius:50%;animation:aiDot 1.2s infinite .4s;"></span>'+
+    '</span></div>';
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function _removeThinking() {
+  var el = document.getElementById('ai-thinking');
+  if (el) el.remove();
+}
+
+function _showSuggestions(suggestions) {
+  var el = document.getElementById('ai-suggestions');
+  el.innerHTML = suggestions.map(function(s){
+    return '<button onclick="useAiSuggestion(this.textContent)" style="padding:7px 14px;background:#F0F4FF;color:#1B2D6B;border:1.5px solid #C5D0F0;border-radius:20px;font-family:Barlow,sans-serif;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">'+s+'</button>';
+  }).join('');
+}
+
+function useAiSuggestion(text) {
+  document.getElementById('ai-input').value = text;
+  sendAiMessage();
+}
+
+function sendAiMessage() {
+  if (_aiThinking) return;
+  var input = document.getElementById('ai-input');
+  var text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  document.getElementById('ai-suggestions').innerHTML = '';
+  _addAiMessage('user', text);
+  _aiHistory.push({role:'user', content:text});
+  _aiThinking = true;
+  _showThinking();
+
+  // Build context for Claude
+  var catalogoHelados = (PRODUCTOS||[]).map(function(cat){
+    return cat.cat + ': ' + (cat.items||[]).map(function(i){
+      var formats = [];
+      if(i.p55) formats.push('5,5L='+i.p55.toFixed(2)+'€');
+      if(i.p25) formats.push('2,5L='+i.p25.toFixed(2)+'€');
+      if(i.p) formats.push(i.p.toFixed(2)+'€');
+      return i.n + ' ('+formats.join(', ')+')';
+    }).join('; ');
+  }).join('\n');
+
+  var catalogoAux = (AUX||[]).map(function(cat){
+    return cat.cat + ': ' + (cat.items||[]).map(function(i){
+      return i.n + (i.p?' '+i.p.toFixed(2)+'€':'');
+    }).join('; ');
+  }).join('\n');
+
+  var catalogoPan = (window._PAN||[]).map(function(cat){
+    return cat.cat + ': ' + (cat.items||[]).map(function(i){
+      return i.n + (i.p?' '+i.p.toFixed(2)+'€':'');
+    }).join('; ');
+  }).join('\n');
+
+  var ultimoPedido = '';
+  var misPedidos = window._misPedidos || [];
+  if (misPedidos.length > 0) {
+    var ultimo = misPedidos[0];
+    ultimoPedido = 'Último pedido ('+ultimo.id+'): ' + (ultimo.items||[]).map(function(i){
+      return i.key.split('|')[0] + ' ×' + i.qty;
+    }).join(', ');
+  }
+
+  var qtysActuales = Object.keys(qtys||{}).filter(function(k){return qtys[k].qty>0;}).map(function(k){
+    return k.split('|')[0] + ' ×' + qtys[k].qty;
+  }).join(', ');
+
+  var systemPrompt = 'Eres el asistente de pedidos de Cassata Helados para la franquicia '+
+    (window.currentFranquicia?window.currentFranquicia.nombre:'') +
+    '. Ayudas a preparar pedidos de helados artesanos.\n\n'+
+    'CATÁLOGO DISPONIBLE:\n'+catalogoHelados+'\n\n'+
+    (catalogoPan?'BOLLERÍA:\n'+catalogoPan+'\n\n':'')+
+    'AUXILIARES:\n'+catalogoAux+'\n\n'+
+    (ultimoPedido?'HISTORIAL: '+ultimoPedido+'\n\n':'')+
+    (qtysActuales?'PEDIDO ACTUAL: '+qtysActuales+'\n\n':'')+
+    'INSTRUCCIONES:\n'+
+    '1. Cuando el usuario pida productos, responde con un JSON al final de tu mensaje con este formato exacto:\n'+
+    '{"accion":"añadir_productos","productos":[{"key":"NombreProducto|55","qty":2,"price":35.31},{"key":"AUX|NombreAux","qty":1,"price":49.75}]}\n'+
+    '2. Para helados usa key="NombreExacto|55" para 5,5L o "NombreExacto|25" para 2,5L\n'+
+    '3. Para auxiliares usa key="AUX|NombreExacto"\n'+
+    '4. Para bollería usa key="PAN|NombreExacto"\n'+
+    '5. Sé conciso y amigable. Confirma lo que vas a añadir antes del JSON.\n'+
+    '6. Si no entiendes el pedido, pregunta para aclarar.\n'+
+    '7. Si pide "lo mismo que el mes pasado" usa el historial disponible.\n'+
+    '8. Responde siempre en español.';
+
+  // Call Claude API
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: _aiHistory
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    _removeThinking();
+    _aiThinking = false;
+    var responseText = data.content && data.content[0] ? data.content[0].text : 'Lo siento, no pude procesar tu solicitud.';
+    
+    // Extract JSON action if present
+    var jsonMatch = responseText.match(/\{"accion":"añadir_productos"[^}]+\}|\{\s*"accion"\s*:\s*"añadir_productos"[\s\S]*?\}(?=\s*$|\s*\n)/);
+    var displayText = responseText.replace(/\{"accion".*\}/s, '').trim();
+    if (!displayText) displayText = responseText;
+
+    // Clean JSON from display
+    displayText = displayText.replace(/```json[\s\S]*?```/g, '').replace(/\{[\s\S]*"accion"[\s\S]*\}/g, '').trim();
+
+    _addAiMessage('assistant', displayText);
+    _aiHistory.push({role:'assistant', content:responseText});
+
+    // Process action
+    if (jsonMatch) {
+      try {
+        var action = JSON.parse(jsonMatch[0]);
+        if (action.accion === 'añadir_productos' && action.productos) {
+          var added = [];
+          action.productos.forEach(function(p) {
+            if (p.key && p.qty > 0) {
+              qtys[p.key] = {qty: p.qty, price: p.price || 0};
+              added.push(p.key.split('|')[0] + ' ×' + p.qty);
+            }
+          });
+          buildAll();
+          if (added.length) {
+            setTimeout(function(){
+              _showSuggestions(['Añadir más productos', 'Ver resumen del pedido', 'Listo, ir al resumen']);
+            }, 500);
+          }
+        }
+      } catch(e) { console.warn('AI JSON parse error:', e); }
+    } else {
+      _showSuggestions(['Repetir último pedido', 'Añadir helados', 'Añadir auxiliares']);
+    }
+
+    // Check for "go to summary" intent
+    if (responseText.toLowerCase().indexOf('listo') > -1 || responseText.toLowerCase().indexOf('resumen') > -1) {
+      _showSuggestions(['✓ Ir al resumen del pedido', 'Seguir añadiendo productos']);
+    }
+  })
+  .catch(function(e) {
+    _removeThinking();
+    _aiThinking = false;
+    _addAiMessage('assistant', 'Lo siento, hubo un error de conexión. Por favor inténtalo de nuevo.');
+    console.warn('AI error:', e);
+  });
+}
+
+// Handle "go to summary" from suggestions
+var _origUseAiSuggestion = useAiSuggestion;
+useAiSuggestion = function(text) {
+  if (text.indexOf('Ir al resumen') > -1) {
+    closeAiAssistant();
+    nextStep();
+    return;
+  }
+  document.getElementById('ai-input').value = text;
+  sendAiMessage();
+};
+
+// Enter key support
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && document.getElementById('ai-modal').style.display !== 'none') {
+    var input = document.getElementById('ai-input');
+    if (document.activeElement === input) sendAiMessage();
+  }
+});
+
+// Add animation CSS for thinking dots
+var aiStyle = document.createElement('style');
+aiStyle.textContent = '@keyframes aiDot{0%,80%,100%{transform:scale(0.6);opacity:0.4;}40%{transform:scale(1);opacity:1;}}';
+document.head.appendChild(aiStyle);
 
 // ── AUTO-REFRESH ──────────────────────────────────────────────────────────────
 var _prevStatuses = {};
