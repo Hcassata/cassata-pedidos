@@ -795,7 +795,7 @@ function sendOrder(){
   const total=getTotal();
 
   // Send to Google Sheets - fire and forget (no-cors, no await)
-  var FRANQ_PREFIX2 = {'Cassata Elda':'ELD','Cassata Petrer':'PET','Cassata Villena':'VIL','Cassata Alicante PAU5':'PAU','Cassata Toledo':'TOL','Otra franquicia':'OTR'};
+  var FRANQ_PREFIX2 = {'Cassata Elda':'ELD','Cassata Petrer':'PET','Cassata Villena':'VIL','Cassata Alicante PAU5':'PAU','Cassata Toledo':'TOL','Mismico Caudete':'MIS','Otra franquicia':'OTR'};
   var fpx2 = FRANQ_PREFIX2[heladeria]||'PED';
   var fmx2 = 0;
   (typeof fabOrders!=='undefined'?fabOrders:[]).forEach(function(o){if(o.id&&o.id.startsWith(fpx2+'-')){var n=parseInt(o.id.split('-')[1])||0;if(n>fmx2)fmx2=n;}});
@@ -1457,7 +1457,7 @@ async function fabTab(t) {
 }
 
 // ── PIN SYSTEM ───────────────────────────────────────────────────────────────
-var PIN_MAP = {'1100':'Cassata Petrer','3300':'Cassata Elda','4400':'Cassata Alicante PAU5','5500':'Cassata Villena','6600':'Cassata Toledo','0000':'Otra franquicia'};
+var PIN_MAP = {'1100':'Cassata Petrer','3300':'Cassata Elda','4400':'Cassata Alicante PAU5','5500':'Cassata Villena','6600':'Cassata Toledo','7700':'Mismico Caudete','0000':'Otra franquicia'};
 window.currentFranquicia = null;
 var pinBuf = '';
 
