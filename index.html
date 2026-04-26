@@ -1482,6 +1482,8 @@ function pinEnter() {
   document.getElementById('btn-entrar').style.display='none';
   loadMisPedidos();
   startHistorialRefresh();
+  // Apply franchise-specific tab restrictions
+  applyFranchiseTabs();
 }
 function pinGoNew() {
   document.getElementById('pin-overlay').style.display='none';
@@ -2418,6 +2420,36 @@ document.addEventListener('keydown', function(e) {
 var aiStyle = document.createElement('style');
 aiStyle.textContent = '@keyframes aiDot{0%,80%,100%{transform:scale(0.6);opacity:0.4;}40%{transform:scale(1);opacity:1;}}';
 document.head.appendChild(aiStyle);
+
+// ── FRANCHISE TAB RESTRICTIONS ───────────────────────────────────────────────
+// Define which tabs each franchise can see (null = all tabs visible)
+var FRANCHISE_TABS = {
+  'Mismico Caudete': ['helados']
+  // Add more restrictions here if needed:
+  // 'Otra franquicia': ['helados', 'aux']
+};
+
+function applyFranchiseTabs() {
+  if (!window.currentFranquicia) return;
+  var allowed = FRANCHISE_TABS[window.currentFranquicia.nombre];
+  if (!allowed) {
+    // Show all tabs
+    ['tab-helados','tab-pan','tab-aux'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.style.display = '';
+    });
+    return;
+  }
+  // Show/hide tabs based on allowed list
+  var tabMap = {'helados':'tab-helados', 'pan':'tab-pan', 'aux':'tab-aux'};
+  Object.keys(tabMap).forEach(function(key){
+    var el = document.getElementById(tabMap[key]);
+    if (!el) return;
+    el.style.display = allowed.indexOf(key) > -1 ? '' : 'none';
+  });
+  // Switch to first allowed tab
+  if (allowed.length > 0) switchTab(allowed[0]);
+}
 
 // ── AUTO-REFRESH ──────────────────────────────────────────────────────────────
 var _prevStatuses = {};
