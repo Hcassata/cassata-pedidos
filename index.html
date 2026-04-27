@@ -1168,14 +1168,27 @@ function updateBadge(){
 }
 
 async function fabTab(t){
-  const isList=t==='list';
-  document.getElementById('fab-panel-list').style.display=isList?'':'none';
-  document.getElementById('fab-panel-stats').style.display=isList?'none':'';
-  document.getElementById('ftab-list').classList.toggle('active',isList);
-  document.getElementById('ftab-stats').classList.toggle('active',!isList);
-  if(isList){ await fabRefresh(); } else renderStats();
+  ['list','stats','franq','informe'].forEach(function(p){
+    var el=document.getElementById('fab-panel-'+p); if(el) el.style.display=t===p?'':'none';
+    var tb=document.getElementById('ftab-'+p); if(tb) tb.classList.toggle('active',t===p);
+  });
+  if(t==='list') { await fabRefresh(); }
+  else if(t==='stats') renderStats();
+  else if(t==='franq') {
+    var fp=document.getElementById('fab-panel-franq');
+    if(fp) fp.innerHTML=Object.entries(PIN_MAP).map(function(e){
+      return '<div class="order-card fab-franq-card" data-nombre="'+e[1]+'" style="cursor:pointer;">'+
+        '<div class="order-card-top"><span class="order-heladeria">'+e[1]+'</span>'+
+        '<span class="order-status status-pending" style="font-size:13px;">PIN: '+e[0]+'</span></div>'+
+        '<div class="order-meta">Pulsa para ver sus pedidos →</div></div>';
+    }).join('');
+    document.querySelectorAll('.fab-franq-card').forEach(function(el){
+      el.addEventListener('click',function(){showFranquiciaPedidos(this.getAttribute('data-nombre'));});
+    });
+  } else if(t==='informe') {
+    renderInformes();
+  }
 }
-
 function statusLabel(s){
   if(s==='Preparado') return '<span class="order-status status-ready">✓ Preparado</span>';
   if(s==='Enviado')   return '<span class="order-status status-sent">🚚 Enviado</span>';
@@ -1723,28 +1736,7 @@ fabFetch().then(updateBadge);
 
 // ── FACTORY TAB WITH FRANQ ───────────────────────────────────────────────────
 var _origFabTab = fabTab;
-async function fabTab(t) {
-  ['list','stats','franq'].forEach(function(p) {
-    var panel = document.getElementById('fab-panel-'+p);
-    var tab   = document.getElementById('ftab-'+p);
-    if(panel) panel.style.display = t===p ? '' : 'none';
-    if(tab)   tab.classList.toggle('active', t===p);
-  });
-  if(t==='list') { await fabFetch(); renderOrders(); updateBadge(); }
-  else if(t==='stats') renderStats();
-  else {
-    document.getElementById('fab-panel-franq').innerHTML = Object.entries(PIN_MAP).map(function(e) {
-      return '<div class="order-card fab-franq-card" data-nombre="'+e[1]+'" style="cursor:pointer;">' +
-        '<div class="order-card-top"><span class="order-heladeria">'+e[1]+'</span>' +
-        '<span class="order-status status-pending" style="font-size:13px;letter-spacing:.1em;">PIN: '+e[0]+'</span></div>' +
-        '<div class="order-meta">Pulsa para ver sus pedidos →</div></div>';
-    }).join('');
-    document.querySelectorAll('.fab-franq-card').forEach(function(el) {
-      el.addEventListener('click', function() { showFranquiciaPedidos(this.getAttribute('data-nombre')); });
-    });
-  }
-}
-
+async 
 // ── PIN SYSTEM ───────────────────────────────────────────────────────────────
 var PIN_MAP = {'1100':'Cassata Petrer','3300':'Cassata Elda','4400':'Cassata Alicante PAU5','5500':'Cassata Villena','6600':'Cassata Toledo','7700':'Mismico Caudete','0000':'Otra franquicia'};
 window.currentFranquicia = null;
@@ -3222,11 +3214,14 @@ async function refreshPanel() {
   updateBadge();
 }
 
+// Auto-refresh hooks integrated into openFab/closeFab directly
 var _origOpenFab = openFab;
 openFab = function() {
   _origOpenFab();
-  fabOrders.forEach(function(o){ _prevStatuses[o.id] = o.status; });
-  if (!_refreshTimer) _refreshTimer = setInterval(refreshPanel, 20000);
+  try {
+    fabOrders.forEach(function(o){ _prevStatuses[o.id] = o.status; });
+    if (!_refreshTimer) _refreshTimer = setInterval(refreshPanel, 20000);
+  } catch(e) {}
 };
 
 var _origCloseFab = closeFab;
