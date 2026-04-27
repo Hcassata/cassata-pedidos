@@ -224,6 +224,41 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 .ios-hint{display:none;position:fixed;bottom:90px;left:12px;right:72px;z-index:150;background:var(--navy);color:#fff;border-radius:14px;padding:12px 16px;font-size:13px;align-items:flex-start;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.3);}
 </style>
 <style>
+/* ── SKELETON LOADING ─────────────────────────────────────────────── */
+.skeleton-card {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+}
+.sk-line {
+  background: linear-gradient(90deg, #E8EDF8 25%, #F5F7FC 50%, #E8EDF8 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── BADGE PULSANTE ───────────────────────────────────────────────── */
+.fab-trigger.has-pending .badge-count {
+  animation: badgePulse 2s ease-in-out infinite;
+  background: #E53E3E !important;
+  color: #fff !important;
+}
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(229,62,62,0.4); }
+  50% { transform: scale(1.2); box-shadow: 0 0 0 6px rgba(229,62,62,0); }
+}
+
+/* ── ANIMATED ORDER NUMBER ────────────────────────────────────────── */
+#animated-order-id {
+  font-variant-numeric: tabular-nums;
+  transition: color 0.3s ease, transform 0.2s ease;
+}
+
 /* ── PREMIUM ENHANCEMENTS (safe additions only) ─────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap');
 
@@ -443,6 +478,10 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
     <div class="success-circle">✓</div>
     <div class="success-title">¡Pedido enviado!</div>
     <p class="success-sub">Cassata Helados ha recibido tu pedido.<br>Te confirmarán la entrega en breve.</p>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Número de pedido</div>
+      <div id="animated-order-id" style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;color:var(--navy);letter-spacing:0.05em;transition:all 0.2s ease;font-variant-numeric:tabular-nums;">—</div>
+    </div>
     <div class="card" style="text-align:left">
       <div class="card-title">Resumen</div>
       <div id="success-resumen"></div>
@@ -904,6 +943,8 @@ function sendOrder(){
   document.getElementById('bottom-bar').style.display='none';
   var wabtn = document.getElementById('btn-whatsapp');
   if (wabtn) { wabtn.onclick = shareWhatsApp; }
+  // Animate order number
+  if (typeof orderId !== 'undefined') animateOrderNumber(orderId);
   document.querySelectorAll('.step-item').forEach(d=>{d.classList.remove('active');d.classList.add('done');});
 
   // Download CSV after a short delay (avoids blocking UI on iOS)
@@ -1564,7 +1605,7 @@ function pinGoNew() {
 function loadMisPedidos(silent) {
   var el=document.getElementById('historial-list');
   if(!el)return;
-  if(!silent) el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;">⏳ Cargando...</div>';
+  if(!silent) showSkeletonHistorial();
 
   var cb='_mis'+Date.now();
   var s=document.createElement('script');
@@ -2513,6 +2554,85 @@ function applyFranchiseTabs() {
   });
   // Switch to first allowed tab
   if (allowed.length > 0) switchTab(allowed[0]);
+}
+
+// ── BADGE PULSANTE ───────────────────────────────────────────────────────────
+function updateBadge() {
+  var pending = (fabOrders||[]).filter(function(o){ return o.status === 'Pendiente'; }).length;
+  var badge = document.getElementById('badge-count');
+  var trigger = document.querySelector('.fab-trigger');
+  if (!badge) return;
+  if (pending > 0) {
+    badge.textContent = pending;
+    badge.style.display = 'flex';
+    // Add pulse animation if not already
+    if (trigger && !trigger.classList.contains('has-pending')) {
+      trigger.classList.add('has-pending');
+    }
+  } else {
+    badge.style.display = 'none';
+    if (trigger) trigger.classList.remove('has-pending');
+  }
+}
+
+// ── SKELETON LOADING ──────────────────────────────────────────────────────────
+function showSkeletonHistorial() {
+  var el = document.getElementById('historial-list');
+  if (!el) return;
+  var skeletons = Array(3).fill(0).map(function() {
+    return '<div class="skeleton-card">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:8px;">' +
+      '<div class="sk-line" style="width:120px;height:16px;border-radius:4px;"></div>' +
+      '<div class="sk-line" style="width:70px;height:16px;border-radius:10px;"></div>' +
+      '</div>' +
+      '<div class="sk-line" style="width:80%;height:12px;border-radius:4px;margin-bottom:6px;"></div>' +
+      '<div class="sk-line" style="width:60%;height:12px;border-radius:4px;"></div>' +
+      '</div>';
+  }).join('');
+  el.innerHTML = skeletons;
+}
+
+function showSkeletonProducts() {
+  var panels = ['panel-helados', 'panel-pan', 'panel-aux'];
+  panels.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el || el.style.display === 'none') return;
+    var skeletons = Array(6).fill(0).map(function() {
+      return '<div class="skeleton-card" style="display:flex;align-items:center;gap:10px;padding:10px 0;">' +
+        '<div class="sk-line" style="flex:1;height:14px;border-radius:4px;"></div>' +
+        '<div class="sk-line" style="width:50px;height:14px;border-radius:4px;"></div>' +
+        '<div class="sk-line" style="width:70px;height:30px;border-radius:8px;"></div>' +
+        '</div>';
+    }).join('');
+    el.innerHTML = '<div style="padding:0 4px;">' + skeletons + '</div>';
+  });
+}
+
+// ── NÚMERO ANIMADO EN PANTALLA DE ÉXITO ───────────────────────────────────────
+function animateOrderNumber(finalId) {
+  var el = document.getElementById('animated-order-id');
+  if (!el || !finalId) return;
+  var prefix = finalId.split('-')[0] + '-';
+  var targetNum = parseInt(finalId.split('-')[1]) || 0;
+  var chars = '0123456789';
+  var duration = 1200;
+  var start = Date.now();
+  var interval = setInterval(function() {
+    var elapsed = Date.now() - start;
+    var progress = Math.min(elapsed / duration, 1);
+    var eased = 1 - Math.pow(1 - progress, 3); // ease out cubic
+    if (progress < 1) {
+      // Random digits spinning
+      var randomSuffix = String(Math.floor(Math.random() * 999)).padStart(3, '0');
+      el.textContent = prefix + randomSuffix;
+    } else {
+      el.textContent = finalId;
+      el.style.color = 'var(--gold)';
+      el.style.transform = 'scale(1.1)';
+      setTimeout(function(){ el.style.transform = 'scale(1)'; }, 200);
+      clearInterval(interval);
+    }
+  }, 40);
 }
 
 // ── AUTO-REFRESH ──────────────────────────────────────────────────────────────
