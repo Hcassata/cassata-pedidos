@@ -875,7 +875,9 @@ function fillResumen(){
     html+='<div style="font-size:11px;font-weight:700;color:var(--navy);letter-spacing:.08em;text-transform:uppercase;padding:6px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">🍦 Helados, granizados y paletas</div>';
     helItems.forEach(([key,v])=>{
       const [name,size]=key.split('|');
-      const sl=size==='55'?' · 5,5L':size==='25'?' · 2,5L':'';
+      // Determine format label from product name
+      var isGranizado = name.toLowerCase().indexOf('granizado')>-1 || name.toLowerCase().indexOf('horchata')>-1 || name.toLowerCase().indexOf('agua cebada')>-1;
+      var sl = size==='55' ? (isGranizado?' · 10L':' · 5,5L') : size==='25' ? (isGranizado?' · 5L':' · 2,5L') : size==='pal' ? '' : '';
       html+=`<div class="r-line"><span class="r-name">${name}${sl}</span><span class="r-qty">×${v.qty}</span><span class="r-price">${(v.qty*v.price).toFixed(2)} €</span></div>`;
     });
   }
@@ -1218,7 +1220,9 @@ function showDetail(idx){
     ihtml+='<div class="cat-header" style="margin-bottom:6px"><span class="cat-icon">🍦</span><span class="cat-name">Helados, granizados y paletas</span></div>';
     helItems.forEach(it=>{
       const [name,size]=it.key.split('|');
-      const sl=size==='55'?' · 5,5L':size==='25'?' · 2,5L':'';
+      // Determine format label from product name
+      var isGranizado = name.toLowerCase().indexOf('granizado')>-1 || name.toLowerCase().indexOf('horchata')>-1 || name.toLowerCase().indexOf('agua cebada')>-1;
+      var sl = size==='55' ? (isGranizado?' · 10L':' · 5,5L') : size==='25' ? (isGranizado?' · 5L':' · 2,5L') : size==='pal' ? '' : '';
       ihtml+=`<div class="r-line"><span class="r-name">${name}${sl}</span><span class="r-qty">×${it.qty}</span><span class="r-price">${(it.qty*it.price).toFixed(2)} €</span></div>`;
     });
   }
@@ -1367,12 +1371,16 @@ function editPedido(idx) {
     var resultsEl = document.getElementById('edit-search-results');
     if (!searchEl || !resultsEl) return;
 
-    // Build flat catalog from PRODUCTOS, _PAN, AUX
+    // Build flat catalog from PRODUCTOS, _PAN, AUX using correct formats
     var catalog = [];
     (PRODUCTOS||[]).forEach(function(cat){
       (cat.items||[]).forEach(function(item){
-        if(item.p55) catalog.push({name:item.n, key:item.n+'|55', price:item.p55, fmt:'5,5L'});
-        if(item.p25) catalog.push({name:item.n, key:item.n+'|25', price:item.p25, fmt:'2,5L'});
+        var f1 = item.fmt1 || '5,5L';
+        var f2 = item.fmt2 || '2,5L';
+        if(item.p55) catalog.push({name:item.n, key:item.n+'|55', price:item.p55, fmt:f1});
+        if(item.p25 && item.p25 > 0) catalog.push({name:item.n, key:item.n+'|25', price:item.p25, fmt:f2});
+        // Paletas (single price, no size)
+        if(item.p && !item.p55) catalog.push({name:item.n, key:item.n+'|pal', price:item.p, fmt:item.fmt1||'caja'});
       });
     });
     (window._PAN||[]).forEach(function(cat){
