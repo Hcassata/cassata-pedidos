@@ -589,7 +589,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 
 <script>
 window._noop = function(){};
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwoDWSu1wd8Q1kN9mSziBR7pSQILRXsUTigSOJNHdaTRChU99E14st94mnPLNSsEjCeUA/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWWDn1yXIFd0p7lxu0VZ2pa4Liuhr05pQeJrkAXMSHOdOQZhy0fifU0VORVcVP33B0-w/exec';
 const FAB_PWD    = 'cassata2025';
 const MESES      = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const FESTIVOS   = new Set([
@@ -921,7 +921,7 @@ function sendOrder(){
     total: total,
     items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
   });
-  var _url = 'https://script.google.com/macros/s/AKfycbwoDWSu1wd8Q1kN9mSziBR7pSQILRXsUTigSOJNHdaTRChU99E14st94mnPLNSsEjCeUA/exec';
+  var _url = 'https://script.google.com/macros/s/AKfycbwWWDn1yXIFd0p7lxu0VZ2pa4Liuhr05pQeJrkAXMSHOdOQZhy0fifU0VORVcVP33B0-w/exec';
   // Use sendBeacon for iOS reliability, fallback to fetch
   try {
     if (navigator.sendBeacon) {
@@ -1850,7 +1850,7 @@ function loadMisPedidos(silent) {
     delete window[cb]; s.remove();
     if(!silent) el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);">Error de conexión</div>';
   };
-  s.src='https://script.google.com/macros/s/AKfycbwoDWSu1wd8Q1kN9mSziBR7pSQILRXsUTigSOJNHdaTRChU99E14st94mnPLNSsEjCeUA/exec?action=list&callback='+cb+'&t='+Date.now();
+  s.src='https://script.google.com/macros/s/AKfycbwWWDn1yXIFd0p7lxu0VZ2pa4Liuhr05pQeJrkAXMSHOdOQZhy0fifU0VORVcVP33B0-w/exec?action=list&callback='+cb+'&t='+Date.now();
   document.body.appendChild(s);
 }
 
@@ -2675,7 +2675,7 @@ function sendAiMessage() {
     _aiThinking = false;
     _addAiMessage('assistant', 'Lo siento, hubo un error de conexión. Por favor inténtalo de nuevo.');
   };
-  _s.src = 'https://script.google.com/macros/s/AKfycbwoDWSu1wd8Q1kN9mSziBR7pSQILRXsUTigSOJNHdaTRChU99E14st94mnPLNSsEjCeUA/exec?action=ai_chat&callback='+_cb+'&data='+encodeURIComponent(JSON.stringify({
+  _s.src = 'https://script.google.com/macros/s/AKfycbwWWDn1yXIFd0p7lxu0VZ2pa4Liuhr05pQeJrkAXMSHOdOQZhy0fifU0VORVcVP33B0-w/exec?action=ai_chat&callback='+_cb+'&data='+encodeURIComponent(JSON.stringify({
     action: 'ai_chat',
     system: systemPrompt,
     messages: _aiHistory
