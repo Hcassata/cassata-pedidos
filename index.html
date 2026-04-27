@@ -413,6 +413,10 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
       <label>Teléfono</label>
       <input type="text" id="telefono" placeholder="6XX XXX XXX">
     </div>
+    <div class="field" style="margin-top:12px;margin-bottom:0">
+      <label>Email <span style="font-size:10px;font-weight:400;color:var(--text-light);">(para recibir confirmación de envío)</span></label>
+      <input type="email" id="email-franq" placeholder="tu@email.com" autocomplete="email">
+    </div>
   </div>
   <div class="card">
     <div class="card-title">Entrega</div>
@@ -585,7 +589,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 
 <script>
 window._noop = function(){};
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDXNh9UIaGncmivYYKlfQ0MxMwyUHYQ6HoA_9_POZUmkupxurE5NXovbxXKiTXUFugJg/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwP0ZnYQKU96YqH8vn9DQP0agjFL5OnXQiCRFlqsrnXBi69vnncZi0l5poZ3oHxTfDahw/exec';
 const FAB_PWD    = 'cassata2025';
 const MESES      = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const FESTIVOS   = new Set([
@@ -904,18 +908,20 @@ function sendOrder(){
   (typeof fabOrders!=='undefined'?fabOrders:[]).forEach(function(o){if(o.id&&o.id.startsWith(fpx2+'-')){var n=parseInt(o.id.split('-')[1])||0;if(n>fmx2)fmx2=n;}});
   var orderId = fpx2+'-'+String(fmx2+1).padStart(3,'0');
 
+  var emailFranq = getSavedEmail();
   var _payload = JSON.stringify({
     action: 'save_with_id',
     id: orderId,
     heladeria: heladeria,
     contacto: contacto,
     telefono: telefono,
+    email: emailFranq,
     fecha_servicio: fecha,
     observaciones: obs,
     total: total,
     items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
   });
-  var _url = 'https://script.google.com/macros/s/AKfycbwDXNh9UIaGncmivYYKlfQ0MxMwyUHYQ6HoA_9_POZUmkupxurE5NXovbxXKiTXUFugJg/exec';
+  var _url = 'https://script.google.com/macros/s/AKfycbwP0ZnYQKU96YqH8vn9DQP0agjFL5OnXQiCRFlqsrnXBi69vnncZi0l5poZ3oHxTfDahw/exec';
   // Use sendBeacon for iOS reliability, fallback to fetch
   try {
     if (navigator.sendBeacon) {
@@ -1668,7 +1674,7 @@ function loadMisPedidos(silent) {
     delete window[cb]; s.remove();
     if(!silent) el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);">Error de conexión</div>';
   };
-  s.src='https://script.google.com/macros/s/AKfycbwDXNh9UIaGncmivYYKlfQ0MxMwyUHYQ6HoA_9_POZUmkupxurE5NXovbxXKiTXUFugJg/exec?action=list&callback='+cb+'&t='+Date.now();
+  s.src='https://script.google.com/macros/s/AKfycbwP0ZnYQKU96YqH8vn9DQP0agjFL5OnXQiCRFlqsrnXBi69vnncZi0l5poZ3oHxTfDahw/exec?action=list&callback='+cb+'&t='+Date.now();
   document.body.appendChild(s);
 }
 
@@ -2493,7 +2499,7 @@ function sendAiMessage() {
     _aiThinking = false;
     _addAiMessage('assistant', 'Lo siento, hubo un error de conexión. Por favor inténtalo de nuevo.');
   };
-  _s.src = 'https://script.google.com/macros/s/AKfycbwDXNh9UIaGncmivYYKlfQ0MxMwyUHYQ6HoA_9_POZUmkupxurE5NXovbxXKiTXUFugJg/exec?action=ai_chat&callback='+_cb+'&data='+encodeURIComponent(JSON.stringify({
+  _s.src = 'https://script.google.com/macros/s/AKfycbwP0ZnYQKU96YqH8vn9DQP0agjFL5OnXQiCRFlqsrnXBi69vnncZi0l5poZ3oHxTfDahw/exec?action=ai_chat&callback='+_cb+'&data='+encodeURIComponent(JSON.stringify({
     action: 'ai_chat',
     system: systemPrompt,
     messages: _aiHistory
@@ -2525,6 +2531,28 @@ document.addEventListener('keydown', function(e) {
 var aiStyle = document.createElement('style');
 aiStyle.textContent = '@keyframes aiDot{0%,80%,100%{transform:scale(0.6);opacity:0.4;}40%{transform:scale(1);opacity:1;}}';
 document.head.appendChild(aiStyle);
+
+// ── EMAIL AUTO-SAVE ──────────────────────────────────────────────────────────
+function getEmailKey() {
+  return 'email_' + (window.currentFranquicia ? window.currentFranquicia.pin : 'guest');
+}
+function loadSavedEmail() {
+  var saved = localStorage.getItem(getEmailKey());
+  var el = document.getElementById('email-franq');
+  if (el && saved) el.value = saved;
+  // Auto-save on change
+  if (el) {
+    el.addEventListener('blur', function(){
+      if (this.value.trim()) localStorage.setItem(getEmailKey(), this.value.trim());
+    });
+  }
+}
+function getSavedEmail() {
+  var el = document.getElementById('email-franq');
+  var val = el ? el.value.trim() : '';
+  if (val) localStorage.setItem(getEmailKey(), val);
+  return val || localStorage.getItem(getEmailKey()) || '';
+}
 
 // ── FRANCHISE TAB RESTRICTIONS ───────────────────────────────────────────────
 // Define which tabs each franchise can see (null = all tabs visible)
