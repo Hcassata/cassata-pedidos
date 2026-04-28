@@ -876,7 +876,7 @@ function fillResumen(){
     helItems.forEach(([key,v])=>{
       const [name,size]=key.split('|');
       // Determine format label from product name
-      var isGranizado = name.toLowerCase().indexOf('granizado')>-1 || name.toLowerCase().indexOf('horchata')>-1 || name.toLowerCase().indexOf('agua cebada')>-1;
+      var isGranizado = name.toLowerCase().indexOf('granizado')>-1 || name.toLowerCase().indexOf('horchata')>-1 || name.toLowerCase().indexOf('agua cebada')>-1 || name.toLowerCase().indexOf('leche preparada')>-1;
       var sl = size==='55' ? (isGranizado?' · 10L':' · 5,5L') : size==='25' ? (isGranizado?' · 5L':' · 2,5L') : size==='pal' ? '' : '';
       html+=`<div class="r-line"><span class="r-name">${name}${sl}</span><span class="r-qty">×${v.qty}</span><span class="r-price">${(v.qty*v.price).toFixed(2)} €</span></div>`;
     });
@@ -999,7 +999,8 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
   helItems.forEach(function(x,ri){
     var key=x[0],v=x[1];
     var parts=key.split('|'),name=parts[0],size=parts[1];
-    var fmt=size==='55'?'5,5 L':size==='25'?'2,5 L':'';
+    var isGranCsv=name&&['granizado','horchata','agua cebada','leche preparada'].some(function(g){return name.toLowerCase().indexOf(g)>-1;});
+    var fmt=size==='55'?(isGranCsv?'10 L':'5,5 L'):size==='25'?(isGranCsv?'5 L':'2,5 L'):'';
     var bg=ri%2===0?'#ffffff':'#EEF4FB';
     var checkbox='<td style="-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:2px 5px;text-align:center;background:'+bg+' !important;border-bottom:1px solid #D0DBF0;"><div style="width:16px;height:16px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
     helRows+='<tr>'+td(name,'left',true,null,bg)+td(fmt,'center',false,null,bg)+td(v.qty,'center',true,null,bg)+checkbox+td(v.price.toFixed(2)+' €','right',false,null,bg)+td((v.qty*v.price).toFixed(2)+' €','right',true,null,bg)+'</tr>';
@@ -1192,7 +1193,7 @@ async function fabTab(t){
   }
 }
 function statusLabel(s){
-  if(s==='Preparado') return '<span class="order-status status-ready">✓ Preparado</span>';
+  if(s==='En preparación') return '<span class="order-status status-ready">⚙️ En preparación</span>';
   if(s==='Enviado')   return '<span class="order-status status-sent">🚚 Enviado</span>';
   return '<span class="order-status status-pending">⏳ Pendiente</span>';
 }
@@ -1221,7 +1222,7 @@ function showDetail(idx){
     helItems.forEach(it=>{
       const [name,size]=it.key.split('|');
       // Determine format label from product name
-      var isGranizado = name.toLowerCase().indexOf('granizado')>-1 || name.toLowerCase().indexOf('horchata')>-1 || name.toLowerCase().indexOf('agua cebada')>-1;
+      var isGranizado = name.toLowerCase().indexOf('granizado')>-1 || name.toLowerCase().indexOf('horchata')>-1 || name.toLowerCase().indexOf('agua cebada')>-1 || name.toLowerCase().indexOf('leche preparada')>-1;
       var sl = size==='55' ? (isGranizado?' · 10L':' · 5,5L') : size==='25' ? (isGranizado?' · 5L':' · 2,5L') : size==='pal' ? '' : '';
       ihtml+=`<div class="r-line"><span class="r-name">${name}${sl}</span><span class="r-qty">×${it.qty}</span><span class="r-price">${(it.qty*it.price).toFixed(2)} €</span></div>`;
     });
@@ -1237,9 +1238,9 @@ function showDetail(idx){
   ihtml+=`<div class="r-total"><span>Total (sin IVA)</span><span>${o.total>0?parseFloat(o.total).toFixed(2)+' €':'—'}</span></div>`;
   const obsHtml=o.obs?`<div class="nota" style="margin-top:12px">💬 ${o.obs}</div>`:'';
   const btns=o.status==='Enviado'?'':
-    o.status==='Preparado'
+    o.status==='En preparación'
       ?`<button class="fab-btn fab-btn-sent" onclick="setStatus(${idx},'Enviado')">🚚 Marcar enviado</button>`
-      :`<button class="fab-btn fab-btn-ready" onclick="setStatus(${idx},'Preparado')">✓ Marcar preparado</button>
+      :`<button class="fab-btn fab-btn-ready" onclick="setStatus(${idx},'En preparación')">⚙️ En preparación</button>
         <button class="fab-btn fab-btn-sent" onclick="setStatus(${idx},'Enviado')">🚚 Marcar enviado</button>`;
   document.getElementById('fab-detail').innerHTML=`
     <div class="detail-back" onclick="backToList()">← Volver</div>
@@ -1449,9 +1450,9 @@ async function setStatus(idx, status) {
   // Show message dialog before confirming
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(27,45,107,.6);z-index:800;display:flex;align-items:center;justify-content:center;padding:20px;';
-  const icon = status === 'Preparado' ? '✓' : '🚚';
-  const color = status === 'Preparado' ? '#065F46' : '#1E3A8A';
-  const bg = status === 'Preparado' ? '#D1FAE5' : '#DBEAFE';
+  const icon = status === 'En preparación' ? '✓' : '🚚';
+  const color = status === 'En preparación' ? '#065F46' : '#1E3A8A';
+  const bg = status === 'En preparación' ? '#D1FAE5' : '#DBEAFE';
   modal.innerHTML = `<div style="background:#fff;border-radius:20px;width:100%;max-width:400px;padding:24px;">
     <div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:900;color:var(--navy);margin-bottom:6px;">${icon} Marcar como ${status}</div>
     <div style="font-size:13px;color:var(--text-mid);margin-bottom:16px;">Pedido de <strong>${o.heladeria}</strong> · Entrega ${fmtDate(o.fecha)}</div>
@@ -1813,8 +1814,8 @@ function loadMisPedidos(silent) {
       return;
     }
     el.innerHTML=orders.map(function(o,idx){
-      var sc=o.status==='Preparado'?'background:#D1FAE5;color:#065F46':o.status==='Enviado'?'background:#DBEAFE;color:#1E3A8A':'background:#FEF3C7;color:#92400E';
-      var si=o.status==='Preparado'?'✓ Preparado':o.status==='Enviado'?'🚚 Enviado':'⏳ Pendiente';
+      var sc=o.status==='En preparación'?'background:#D1FAE5;color:#065F46':o.status==='Enviado'?'background:#DBEAFE;color:#1E3A8A':'background:#FEF3C7;color:#92400E';
+      var si=o.status==='En preparación'?'⚙️ En preparación':o.status==='Enviado'?'🚚 Enviado':'⏳ Pendiente';
       var tot=o.total>0?parseFloat(o.total).toFixed(2)+' €':'—';
       var hl=changed[o.id]?'border:2px solid #F5C518;box-shadow:0 0 10px rgba(245,197,24,0.4);':'border:1px solid var(--border);';
       var fechaEntrega=fmtDate(o.fecha);
@@ -1869,8 +1870,8 @@ function showOrderModal(o, canDownload) {
     auxItems.forEach(function(it){var name=it.key.replace('AUX|','');var tot=it.price>0?(it.qty*it.price).toFixed(2)+' €':'—';ihtml+='<div class="r-line"><span class="r-name">'+name+'</span><span class="r-qty">×'+it.qty+'</span><span class="r-price">'+tot+'</span></div>';});
   }
   ihtml+='<div class="r-total"><span>Total (sin IVA)</span><span>'+(o.total>0?parseFloat(o.total).toFixed(2)+' €':'—')+'</span></div>';
-  var sc=o.status==='Preparado'?'status-ready':o.status==='Enviado'?'status-sent':'status-pending';
-  var si=o.status==='Preparado'?'✓ Preparado':o.status==='Enviado'?'🚚 Enviado':'⏳ Pendiente';
+  var sc=o.status==='En preparación'?'status-ready':o.status==='Enviado'?'status-sent':'status-pending';
+  var si=o.status==='En preparación'?'⚙️ En preparación':o.status==='Enviado'?'🚚 Enviado':'⏳ Pendiente';
   var modal=document.createElement('div');
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(27,45,107,.5);z-index:700;display:flex;align-items:flex-end;justify-content:center;';
   var dlBtn=canDownload?'<button class="fab-btn fab-btn-excel fab-dl-btn" data-id="'+o.id+'" style="width:100%;padding:14px;margin-top:10px;">📥 Descargar hoja de pedido</button>':'';
@@ -1899,8 +1900,8 @@ function showFranquiciaPedidos(nombre) {
   var modal=document.createElement('div');
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(27,45,107,.5);z-index:700;display:flex;align-items:flex-end;justify-content:center;';
   var lista=orders.length?orders.map(function(o){
-    var sc=o.status==='Preparado'?'status-ready':o.status==='Enviado'?'status-sent':'status-pending';
-    var si=o.status==='Preparado'?'✓ Preparado':o.status==='Enviado'?'🚚 Enviado':'⏳ Pendiente';
+    var sc=o.status==='En preparación'?'status-ready':o.status==='Enviado'?'status-sent':'status-pending';
+    var si=o.status==='En preparación'?'⚙️ En preparación':o.status==='Enviado'?'🚚 Enviado':'⏳ Pendiente';
     var tot=o.total>0?parseFloat(o.total).toFixed(2)+' €':'—';
     return '<div class="order-card fab-order-card" data-id="'+o.id+'" style="cursor:pointer;">' +
       '<div class="order-card-top"><span class="order-heladeria">'+fmtDate(o.fecha)+'</span><span class="order-status '+sc+'">'+si+'</span></div>' +
