@@ -973,8 +973,8 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
   var panItems=items.filter(function(x){return x[0].startsWith('PAN|');});
   var auxItems=items.filter(function(x){return x[0].startsWith('AUX|');});
   var nonAux=items.filter(function(x){return !x[0].startsWith('AUX|')&&!x[0].startsWith('PAN|');});
-  var heladosIt=nonAux.filter(function(x){var n=x[0].split('|')[0].toLowerCase();return n.indexOf('granizado')<0&&n.indexOf('horchata')<0&&n.indexOf('agua cebada')<0&&n.indexOf('leche preparada')<0;});
-  var granizIt=nonAux.filter(function(x){var n=x[0].split('|')[0].toLowerCase();return n.indexOf('granizado')>=0||n.indexOf('horchata')>=0||n.indexOf('agua cebada')>=0||n.indexOf('leche preparada')>=0;});
+  var heladosIt=nonAux.filter(function(x){var n=x[0].split('|')[0].toLowerCase();return (n.indexOf('granizado')<0&&n.indexOf('horchata')<0&&n.indexOf('agua cebada')<0&&n.indexOf('leche preparada')<0)||n.indexOf('polo')>-1;});
+  var granizIt=nonAux.filter(function(x){var n=x[0].split('|')[0].toLowerCase();return (n.indexOf('granizado')>=0||n.indexOf('horchata')>=0||n.indexOf('agua cebada')>=0||n.indexOf('leche preparada')>=0)&&n.indexOf('polo')<0;});
   heladosIt.sort(function(a,b){return a[0].split('|')[0].localeCompare(b[0].split('|')[0],'es');});
   // Detect paletas from PRODUCTOS catalog
   var paletaNames=[];
@@ -983,7 +983,7 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
       (cat.items||[]).forEach(function(it){paletaNames.push(it.n.toLowerCase());});
     }
   });
-  var isPaletaFn=function(name){return paletaNames.indexOf(name.toLowerCase())>-1;};
+  var isPaletaFn=function(name){return paletaNames.indexOf(name.toLowerCase())>-1||name.toLowerCase().indexOf('polo')>-1;};
   var paletasIt=heladosIt.filter(function(x){return isPaletaFn(x[0].split('|')[0]);});
   heladosIt=heladosIt.filter(function(x){return !isPaletaFn(x[0].split('|')[0]);});
   var helItems=heladosIt; // only cream ice creams
@@ -1009,7 +1009,7 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
   helItems.forEach(function(x,ri){
     var key=x[0],v=x[1];
     var parts=key.split('|'),name=parts[0],size=parts[1];
-    var isGranCsv=name&&['granizado','horchata','agua cebada','leche preparada'].some(function(g){return name.toLowerCase().indexOf(g)>-1;});
+    var isGranCsv=name&&['granizado','horchata','agua cebada','leche preparada'].some(function(g){return name.toLowerCase().indexOf(g)>-1;})&&name.toLowerCase().indexOf('polo')<0;
     var fmt=size==='55'?(isGranCsv?'10 L':'5,5 L'):size==='25'?(isGranCsv?'5 L':'2,5 L'):'';
     var bg=ri%2===0?'#ffffff':'#EEF4FB';
     var checkbox='<td style="-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:2px 5px;text-align:center;background:'+bg+' !important;border-bottom:1px solid #D0DBF0;"><div style="width:16px;height:16px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
