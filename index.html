@@ -976,7 +976,17 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
   var heladosIt=nonAux.filter(function(x){var n=x[0].split('|')[0].toLowerCase();return n.indexOf('granizado')<0&&n.indexOf('horchata')<0&&n.indexOf('agua cebada')<0&&n.indexOf('leche preparada')<0;});
   var granizIt=nonAux.filter(function(x){var n=x[0].split('|')[0].toLowerCase();return n.indexOf('granizado')>=0||n.indexOf('horchata')>=0||n.indexOf('agua cebada')>=0||n.indexOf('leche preparada')>=0;});
   heladosIt.sort(function(a,b){return a[0].split('|')[0].localeCompare(b[0].split('|')[0],'es');});
-  var helItems=heladosIt.concat(granizIt);
+  // Detect paletas from PRODUCTOS catalog
+  var paletaNames=[];
+  (typeof PRODUCTOS!=='undefined'&&PRODUCTOS||[]).forEach(function(cat){
+    if(cat.cat&&cat.cat.toLowerCase().indexOf('paleta')>-1){
+      (cat.items||[]).forEach(function(it){paletaNames.push(it.n.toLowerCase());});
+    }
+  });
+  var isPaletaFn=function(name){return paletaNames.indexOf(name.toLowerCase())>-1;};
+  var paletasIt=heladosIt.filter(function(x){return isPaletaFn(x[0].split('|')[0]);});
+  heladosIt=heladosIt.filter(function(x){return !isPaletaFn(x[0].split('|')[0]);});
+  var helItems=heladosIt; // only cream ice creams
   // Calculate total from items directly as most reliable method
   var total = 0;
   helItems.forEach(function(x){ total += (parseFloat(x[1].qty)||0) * (parseFloat(x[1].price)||0); });
@@ -1064,12 +1074,44 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
   out+=obsRow+'</table>';
 
   // ── HELADOS TABLE ──
+  // Build granizados rows
+  var granizRows='';
+  granizIt.forEach(function(x,ri){
+    var key=x[0],v=x[1],name=key.split('|')[0],size=key.split('|')[1];
+    var hasSz=/[0-9]/.test(name)&&/[Ll]/.test(name);
+    var fmt=hasSz&&size==='55'?'':size==='55'?'10 L':size==='25'?'5 L':'';
+    var tot=v.price>0?(v.qty*v.price).toFixed(2)+' \u20ac':'--';
+    var bg=ri%2===0?'#ffffff':'#EEF4FB';
+    var cb='<td style="-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:2px 5px;text-align:center;background:'+bg+' !important;border-bottom:1px solid #D0DBF0;"><div style="width:16px;height:16px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
+    granizRows+='<tr>'+td(name,'left',true,null,bg)+td(fmt,'center',false,null,bg)+td(v.qty,'center',true,null,bg)+cb+td(v.price>0?v.price.toFixed(2)+' \u20ac':'\u2014','right',false,null,bg)+td(tot,'right',true,null,bg)+'</tr>';
+  });
+  var paletaRows2='';
+  paletasIt.forEach(function(x,ri){
+    var key=x[0],v=x[1],name=key.split('|')[0];
+    var tot=v.price>0?(v.qty*v.price).toFixed(2)+' \u20ac':'--';
+    var bg=ri%2===0?'#ffffff':'#EEF4FB';
+    var cb='<td style="-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:2px 5px;text-align:center;background:'+bg+' !important;border-bottom:1px solid #D0DBF0;"><div style="width:16px;height:16px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
+    paletaRows2+='<tr>'+td(name,'left',true,null,bg)+td('caja','center',false,null,bg)+td(v.qty,'center',true,null,bg)+cb+td(v.price>0?v.price.toFixed(2)+' \u20ac':'\u2014','right',false,null,bg)+td(tot,'right',true,null,bg)+'</tr>';
+  });
   if(helRows){
     out+='<table style="margin-top:10px;border:1px solid #E8EDF8;">';
-    out+='<thead><tr><td colspan="6" style="padding:7px 10px;background:#1B2D6B;color:#fff;font-weight:800;font-size:11px;letter-spacing:1px;text-transform:uppercase;">🍦 Helados, Granizados y Paletas</td></tr>';
-    out+='<tr>'+th('Producto')+th('Formato','center')+th('Cantidad','center')+th('✓','center')+th('P. Unit.','right')+th('Total','right')+'</tr></thead>';
+    out+='<thead><tr><td colspan="6" style="padding:7px 10px;background:#1B2D6B;color:#fff;font-weight:800;font-size:11px;letter-spacing:1px;text-transform:uppercase;">\ud83c\udf66 Helados de crema</td></tr>';
+    out+='<tr>'+th('Producto')+th('Formato','center')+th('Cantidad','center')+th('\u2713','center')+th('P. Unit.','right')+th('Total','right')+'</tr></thead>';
     out+='<tbody>'+helRows+'</tbody></table>';
   }
+  if(granizRows){
+    out+='<table style="margin-top:8px;border:1px solid #E8EDF8;">';
+    out+='<thead><tr><td colspan="6" style="padding:7px 10px;background:#1B4D8E;color:#fff;font-weight:800;font-size:11px;letter-spacing:1px;text-transform:uppercase;">\ud83e\uddca Granizados y Horchatas</td></tr>';
+    out+='<tr>'+th('Producto','left','#1B4D8E')+th('Formato','center','#1B4D8E')+th('Cantidad','center','#1B4D8E')+th('\u2713','center','#1B4D8E')+th('P. Unit.','right','#1B4D8E')+th('Total','right','#1B4D8E')+'</tr></thead>';
+    out+='<tbody>'+granizRows+'</tbody></table>';
+  }
+  if(paletaRows2){
+    out+='<table style="margin-top:8px;border:1px solid #E8EDF8;">';
+    out+='<thead><tr><td colspan="6" style="padding:7px 10px;background:#2A6B4D;color:#fff;font-weight:800;font-size:11px;letter-spacing:1px;text-transform:uppercase;">\ud83c\udf61 Paletas</td></tr>';
+    out+='<tr>'+th('Producto','left','#2A6B4D')+th('Formato','center','#2A6B4D')+th('Cantidad','center','#2A6B4D')+th('\u2713','center','#2A6B4D')+th('P. Unit.','right','#2A6B4D')+th('Total','right','#2A6B4D')+'</tr></thead>';
+    out+='<tbody>'+paletaRows2+'</tbody></table>';
+  }
+
 
   // ── BOLLERÍA TABLE ──
   if(panRows){
