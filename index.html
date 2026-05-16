@@ -991,8 +991,9 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
   var helItems=heladosIt; // only cream ice creams
   // Calculate total from items directly as most reliable method
   var total = 0;
-  helItems.forEach(function(x){ total += (parseFloat(x[1].qty)||0) * (parseFloat(x[1].price)||0); });
-  auxItems.forEach(function(x){ total += (parseFloat(x[1].qty)||0) * (parseFloat(x[1].price)||0); });
+  [helItems, granizIt, paletasIt, panItems, auxItems].forEach(function(cat){
+    (cat||[]).forEach(function(x){ total += (parseFloat(x[1].qty)||0) * (parseFloat(x[1].price)||0); });
+  });
   if(total === 0 && totalAmt) total = parseFloat(totalAmt) || 0;
 
   function th(t,align,bg,color){
