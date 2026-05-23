@@ -879,7 +879,7 @@ function fillResumen(){
       const [name,size]=key.split('|');
       // Determine format label from product name
       var isGranizado = name.toLowerCase().indexOf('granizado')>-1 || name.toLowerCase().indexOf('horchata')>-1 || name.toLowerCase().indexOf('agua cebada')>-1 || name.toLowerCase().indexOf('leche preparada')>-1;
-      var sl = size==='55' ? (isGranizado?' · 10L':' · 5,5L') : size==='25' ? (isGranizado?' · 5L':' · 2,5L') : size==='pal' ? '' : '';
+      var hasSzD=/\d\s*(litro|l)\b/i.test(name);var sl = hasSzD?'':size==='55' ? (isGranizado?' · 10L':' · 5,5L') : size==='25' ? (isGranizado?' · 5L':' · 2,5L') : size==='pal' ? '' : '';
       html+=`<div class="r-line"><span class="r-name">${name}${sl}</span><span class="r-qty">×${v.qty}</span><span class="r-price">${(v.qty*v.price).toFixed(2)} €</span></div>`;
     });
   }
@@ -1013,7 +1013,8 @@ function generateCSV(items,heladeria,contacto,telefono,fecha,obs,pedNum,totalAmt
     var key=x[0],v=x[1];
     var parts=key.split('|'),name=parts[0],size=parts[1];
     var isGranCsv=name&&['granizado','horchata','agua cebada','leche preparada'].some(function(g){return name.toLowerCase().indexOf(g)>-1;})&&name.toLowerCase().indexOf('polo')<0;
-    var fmt=size==='55'?(isGranCsv?'10 L':'5,5 L'):size==='25'?(isGranCsv?'5 L':'2,5 L'):'';
+    var hasSzCsv=/\d\s*(litro|l)\b/i.test(name);
+    var fmt=hasSzCsv?'':size==='55'?(isGranCsv?'10 L':'5,5 L'):size==='25'?(isGranCsv?'5 L':'2,5 L'):'';
     var bg=ri%2===0?'#ffffff':'#EEF4FB';
     var checkbox='<td style="-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:2px 5px;text-align:center;background:'+bg+' !important;border-bottom:1px solid #D0DBF0;"><div style="width:16px;height:16px;border:2px solid #1B2D6B;border-radius:3px;display:inline-block;"></div></td>';
     helRows+='<tr>'+td(name,'left',true,null,bg)+td(fmt,'center',false,null,bg)+td(v.qty,'center',true,null,bg)+checkbox+td(v.price.toFixed(2)+' €','right',false,null,bg)+td((v.qty*v.price).toFixed(2)+' €','right',true,null,bg)+'</tr>';
@@ -1272,7 +1273,7 @@ function showDetail(idx){
       const [name,size]=it.key.split('|');
       // Determine format label from product name
       var isGranizado = name.toLowerCase().indexOf('granizado')>-1 || name.toLowerCase().indexOf('horchata')>-1 || name.toLowerCase().indexOf('agua cebada')>-1 || name.toLowerCase().indexOf('leche preparada')>-1;
-      var sl = size==='55' ? (isGranizado?' · 10L':' · 5,5L') : size==='25' ? (isGranizado?' · 5L':' · 2,5L') : size==='pal' ? '' : '';
+      var hasSzD=/\d\s*(litro|l)\b/i.test(name);var sl = hasSzD?'':size==='55' ? (isGranizado?' · 10L':' · 5,5L') : size==='25' ? (isGranizado?' · 5L':' · 2,5L') : size==='pal' ? '' : '';
       ihtml+=`<div class="r-line"><span class="r-name">${name}${sl}</span><span class="r-qty">×${it.qty}</span><span class="r-price">${(it.qty*it.price).toFixed(2)} €</span></div>`;
     });
   }
@@ -1627,7 +1628,7 @@ function renderStats() {
       var key = it.key || '';
       var parts = key.split('|');
       var name = parts[0].replace('AUX|','').replace('PAN|','');
-      var size = parts[1] ? ' '+parts[1].replace('55','5,5L').replace('25','2,5L') : '';
+      var isGrS=['granizado','horchata','agua cebada','leche preparada'].some(function(g){return parts[0].toLowerCase().indexOf(g)>-1;})&&parts[0].toLowerCase().indexOf('polo')<0;var size = parts[1] ? ' '+(parts[1]==='55'?(isGrS?'10L':'5,5L'):parts[1]==='25'?(isGrS?'5L':'2,5L'):'') : '';
       var label = name + size;
       if (!byProducto[label]) byProducto[label] = {qty:0, importe:0};
       byProducto[label].qty += it.qty || 0;
@@ -1912,7 +1913,7 @@ function showOrderModal(o, canDownload) {
   var ihtml='';
   if(helItems.length){
     ihtml+='<div style="font-size:11px;font-weight:700;color:var(--navy);letter-spacing:.08em;text-transform:uppercase;padding:6px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">🍦 Helados, granizados y paletas</div>';
-    helItems.forEach(function(it){var p=it.key.split('|'),n=p[0],s=p[1];var sl=s==='55'?' · 5,5L':s==='25'?' · 2,5L':'';ihtml+='<div class="r-line"><span class="r-name">'+n+sl+'</span><span class="r-qty">×'+it.qty+'</span><span class="r-price">'+(it.qty*it.price).toFixed(2)+' €</span></div>';});
+    helItems.forEach(function(it){var p=it.key.split('|'),n=p[0],s=p[1];var isGr=['granizado','horchata','agua cebada','leche preparada'].some(function(g){return n.toLowerCase().indexOf(g)>-1;})&&n.toLowerCase().indexOf('polo')<0;var hasSzN=/\d\s*(litro|l)\b/i.test(n);var sl=hasSzN?'':s==='55'?(isGr?' · 10L':' · 5,5L'):s==='25'?(isGr?' · 5L':' · 2,5L'):'';ihtml+='<div class="r-line"><span class="r-name">'+n+sl+'</span><span class="r-qty">×'+it.qty+'</span><span class="r-price">'+(it.qty*it.price).toFixed(2)+' €</span></div>';});
   }
   if(auxItems.length){
     ihtml+='<div style="font-size:11px;font-weight:700;color:var(--navy);letter-spacing:.08em;text-transform:uppercase;padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">📦 Auxiliares</div>';
@@ -2510,7 +2511,7 @@ function shareWhatsApp() {
     lines.push('*HELADOS*');
     helItems.forEach(function(x){
       var parts = x[0].split('|'), name = parts[0], size = parts[1];
-      var fmt = size==='55'?'5,5L':size==='25'?'2,5L':'';
+      var isGrW=['granizado','horchata','agua cebada','leche preparada'].some(function(g){return name.toLowerCase().indexOf(g)>-1;})&&name.toLowerCase().indexOf('polo')<0;var fmt = size==='55'?(isGrW?'10L':'5,5L'):size==='25'?(isGrW?'5L':'2,5L'):'';
       lines.push('• ' + name + (fmt?' ('+fmt+')':'') + ' × ' + x[1].qty);
     });
     lines.push('');
@@ -3022,7 +3023,7 @@ function buildExcelCSV(orders, mesLabel) {
       var key=it.key||'';
       var name=key.replace('AUX|','').replace('PAN|','').split('|')[0];
       var size=key.split('|')[1];
-      var fmt=size==='55'?' · 5,5L':size==='25'?' · 2,5L':'';
+      var isGrE=['granizado','horchata','agua cebada','leche preparada'].some(function(g){return name.toLowerCase().indexOf(g)>-1;})&&name.toLowerCase().indexOf('polo')<0;var hasSzE=/\d\s*(litro|l)\b/i.test(name);var fmt=hasSzE?'':size==='55'?(isGrE?' · 10L':' · 5,5L'):size==='25'?(isGrE?' · 5L':' · 2,5L'):'';
       var label=name+fmt;
       if(!byProd[label]) byProd[label]={qty:0,importe:0};
       byProd[label].qty+=it.qty||0;
@@ -3139,7 +3140,7 @@ function buildPresentationHTML(orders, mesLabel) {
       var key=it.key||'';
       var name=key.replace('AUX|','').replace('PAN|','').split('|')[0];
       var size=key.split('|')[1];
-      var fmt=size==='55'?' 5,5L':size==='25'?' 2,5L':'';
+      var isGrX=['granizado','horchata','agua cebada','leche preparada'].some(function(g){return name.toLowerCase().indexOf(g)>-1;})&&name.toLowerCase().indexOf('polo')<0;var fmt=size==='55'?(isGrX?' 10L':' 5,5L'):size==='25'?(isGrX?' 5L':' 2,5L'):'';
       var label=name+fmt;
       if(!byProd[label]) byProd[label]={qty:0,importe:0};
       byProd[label].qty+=it.qty||0;
