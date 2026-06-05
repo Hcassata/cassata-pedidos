@@ -794,7 +794,7 @@ function _baseBuildList(cats, containerId){
             ${row25}
           </div></div>`;
       } else {
-        const key=(containerId==='aux-list'?'AUX|':'')+item.n+(item.unit?'|55':'|55');
+        const key=(containerId==='aux-list'?'AUX|':containerId==='pan-list'?'PAN|':'')+item.n+(item.unit?'|55':'|55');
         const pr=item.p55||item.p||0;
         const lbl=pr?(pr.toFixed(2)+(item.unit?'€/'+item.unit:'€')):'Consultar';
         html+=`<div class="product-row">
@@ -2401,7 +2401,7 @@ function buildList(cats, containerId) {
   var allItems = [];
   cats.forEach(function(cat) {
     (cat.items||[]).forEach(function(item) {
-      var key = item.p55 !== undefined ? item.n+'|55' : (containerId==='aux-list'?'AUX|':containerId==='pan-list'?'PAN|':'')+item.n;
+      var prefix = containerId==='aux-list'?'AUX|':containerId==='pan-list'?'PAN|':'';var key = prefix ? prefix+item.n : (item.p55 !== undefined ? item.n+'|55' : item.n);
       allItems.push({item:item, cat:cat, key:key});
     });
   });
