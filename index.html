@@ -1270,7 +1270,7 @@ function showDetail(idx){
   if(helItems.length){
     ihtml+='<div class="cat-header" style="margin-bottom:6px"><span class="cat-icon">🍦</span><span class="cat-name">Helados, granizados y paletas</span></div>';
     helItems.forEach(it=>{
-      const [name,size]=it.key.split('|');
+      const _cleanKey=it.key.replace(/^(PAN|AUX)\|/,'');const [name,size]=_cleanKey.split('|');
       // Determine format label from product name
       var isGranizado = name.toLowerCase().indexOf('granizado')>-1 || name.toLowerCase().indexOf('horchata')>-1 || name.toLowerCase().indexOf('agua cebada')>-1 || name.toLowerCase().indexOf('leche preparada')>-1;
       var hasSzD=/\d\s*(litro|l)\b/i.test(name);var sl = hasSzD?'':size==='55' ? (isGranizado?' · 10L':' · 5,5L') : size==='25' ? (isGranizado?' · 5L':' · 2,5L') : size==='pal' ? '' : '';
@@ -1913,7 +1913,7 @@ function showOrderModal(o, canDownload) {
   var ihtml='';
   if(helItems.length){
     ihtml+='<div style="font-size:11px;font-weight:700;color:var(--navy);letter-spacing:.08em;text-transform:uppercase;padding:6px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">🍦 Helados, granizados y paletas</div>';
-    helItems.forEach(function(it){var p=it.key.split('|'),n=p[0],s=p[1];var isGr=['granizado','horchata','agua cebada','leche preparada'].some(function(g){return n.toLowerCase().indexOf(g)>-1;})&&n.toLowerCase().indexOf('polo')<0;var hasSzN=/\d\s*(litro|l)\b/i.test(n);var sl=hasSzN?'':s==='55'?(isGr?' · 10L':' · 5,5L'):s==='25'?(isGr?' · 5L':' · 2,5L'):'';ihtml+='<div class="r-line"><span class="r-name">'+n+sl+'</span><span class="r-qty">×'+it.qty+'</span><span class="r-price">'+(it.qty*it.price).toFixed(2)+' €</span></div>';});
+    helItems.forEach(function(it){var _ck=it.key.replace(/^(PAN|AUX)\|/,'');var p=_ck.split('|'),n=p[0],s=p[1];var isGr=['granizado','horchata','agua cebada','leche preparada'].some(function(g){return n.toLowerCase().indexOf(g)>-1;})&&n.toLowerCase().indexOf('polo')<0;var hasSzN=/\d\s*(litro|l)\b/i.test(n);var sl=hasSzN?'':s==='55'?(isGr?' · 10L':' · 5,5L'):s==='25'?(isGr?' · 5L':' · 2,5L'):'';ihtml+='<div class="r-line"><span class="r-name">'+n+sl+'</span><span class="r-qty">×'+it.qty+'</span><span class="r-price">'+(it.qty*it.price).toFixed(2)+' €</span></div>';});
   }
   if(auxItems.length){
     ihtml+='<div style="font-size:11px;font-weight:700;color:var(--navy);letter-spacing:.08em;text-transform:uppercase;padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">📦 Auxiliares</div>';
