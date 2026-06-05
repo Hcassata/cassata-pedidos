@@ -780,7 +780,7 @@ function _baseBuildList(cats, containerId){
     html+=`<div class="cat-header"><span class="cat-icon">${cat.cat.split(' ')[0]}</span><span class="cat-name">${cat.cat.replace(/^[^ ]+ /,'')}</span></div>`;
     cat.items.forEach(item=>{
       if(item.p55!==undefined && !item.unit){
-        const k55=item.n+'|55', k25=item.n+'|25';
+        const _pfx=containerId==='pan-list'?'PAN|':containerId==='aux-list'?'AUX|':'';const k55=_pfx+item.n+'|55', k25=_pfx+item.n+'|25';
         const f1=item.fmt1||'5,5L', f2=item.fmt2||'2,5L';
         // Only show second format if price exists and is > 0
         const show25 = item.p25 && item.p25 > 0;
@@ -879,7 +879,7 @@ function fillResumen(){
       const [name,size]=key.split('|');
       // Determine format label from product name
       var isGranizado = name.toLowerCase().indexOf('granizado')>-1 || name.toLowerCase().indexOf('horchata')>-1 || name.toLowerCase().indexOf('agua cebada')>-1 || name.toLowerCase().indexOf('leche preparada')>-1;
-      var hasSzD=/\d\s*(litro|l)\b/i.test(name);var sl = hasSzD?'':size==='55' ? (isGranizado?' · 10L':' · 5,5L') : size==='25' ? (isGranizado?' · 5L':' · 2,5L') : size==='pal' ? '' : '';
+      var hasSzD=/\d\s*(litro|l)\b/i.test(name);var sl = _isPan||hasSzD?'':size==='55' ? (isGranizado?' · 10L':' · 5,5L') : size==='25' ? (isGranizado?' · 5L':' · 2,5L') : size==='pal' ? '' : '';
       html+=`<div class="r-line"><span class="r-name">${name}${sl}</span><span class="r-qty">×${v.qty}</span><span class="r-price">${(v.qty*v.price).toFixed(2)} €</span></div>`;
     });
   }
@@ -1270,10 +1270,10 @@ function showDetail(idx){
   if(helItems.length){
     ihtml+='<div class="cat-header" style="margin-bottom:6px"><span class="cat-icon">🍦</span><span class="cat-name">Helados, granizados y paletas</span></div>';
     helItems.forEach(it=>{
-      const _cleanKey=it.key.replace(/^(PAN|AUX)\|/,'');const [name,size]=_cleanKey.split('|');
+      const _isPan=it.key.startsWith('PAN|');const _cleanKey=it.key.replace(/^(PAN|AUX)\|/,'');const [name,size]=_cleanKey.split('|');
       // Determine format label from product name
       var isGranizado = name.toLowerCase().indexOf('granizado')>-1 || name.toLowerCase().indexOf('horchata')>-1 || name.toLowerCase().indexOf('agua cebada')>-1 || name.toLowerCase().indexOf('leche preparada')>-1;
-      var hasSzD=/\d\s*(litro|l)\b/i.test(name);var sl = hasSzD?'':size==='55' ? (isGranizado?' · 10L':' · 5,5L') : size==='25' ? (isGranizado?' · 5L':' · 2,5L') : size==='pal' ? '' : '';
+      var hasSzD=/\d\s*(litro|l)\b/i.test(name);var sl = _isPan||hasSzD?'':size==='55' ? (isGranizado?' · 10L':' · 5,5L') : size==='25' ? (isGranizado?' · 5L':' · 2,5L') : size==='pal' ? '' : '';
       ihtml+=`<div class="r-line"><span class="r-name">${name}${sl}</span><span class="r-qty">×${it.qty}</span><span class="r-price">${(it.qty*it.price).toFixed(2)} €</span></div>`;
     });
   }
@@ -1913,7 +1913,7 @@ function showOrderModal(o, canDownload) {
   var ihtml='';
   if(helItems.length){
     ihtml+='<div style="font-size:11px;font-weight:700;color:var(--navy);letter-spacing:.08em;text-transform:uppercase;padding:6px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">🍦 Helados, granizados y paletas</div>';
-    helItems.forEach(function(it){var _ck=it.key.replace(/^(PAN|AUX)\|/,'');var p=_ck.split('|'),n=p[0],s=p[1];var isGr=['granizado','horchata','agua cebada','leche preparada'].some(function(g){return n.toLowerCase().indexOf(g)>-1;})&&n.toLowerCase().indexOf('polo')<0;var hasSzN=/\d\s*(litro|l)\b/i.test(n);var sl=hasSzN?'':s==='55'?(isGr?' · 10L':' · 5,5L'):s==='25'?(isGr?' · 5L':' · 2,5L'):'';ihtml+='<div class="r-line"><span class="r-name">'+n+sl+'</span><span class="r-qty">×'+it.qty+'</span><span class="r-price">'+(it.qty*it.price).toFixed(2)+' €</span></div>';});
+    helItems.forEach(function(it){var _isPanH=it.key.startsWith('PAN|');var _ck=it.key.replace(/^(PAN|AUX)\|/,'');var p=_ck.split('|'),n=p[0],s=p[1];var isGr=['granizado','horchata','agua cebada','leche preparada'].some(function(g){return n.toLowerCase().indexOf(g)>-1;})&&n.toLowerCase().indexOf('polo')<0;var hasSzN=/\d\s*(litro|l)\b/i.test(n);var sl=_isPanH||hasSzN?'':s==='55'?(isGr?' · 10L':' · 5,5L'):s==='25'?(isGr?' · 5L':' · 2,5L'):'';ihtml+='<div class="r-line"><span class="r-name">'+n+sl+'</span><span class="r-qty">×'+it.qty+'</span><span class="r-price">'+(it.qty*it.price).toFixed(2)+' €</span></div>';});
   }
   if(auxItems.length){
     ihtml+='<div style="font-size:11px;font-weight:700;color:var(--navy);letter-spacing:.08em;text-transform:uppercase;padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">📦 Auxiliares</div>';
@@ -2401,7 +2401,7 @@ function buildList(cats, containerId) {
   var allItems = [];
   cats.forEach(function(cat) {
     (cat.items||[]).forEach(function(item) {
-      var prefix = containerId==='aux-list'?'AUX|':containerId==='pan-list'?'PAN|':'';var key = prefix ? prefix+item.n : (item.p55 !== undefined ? item.n+'|55' : item.n);
+      var prefix = containerId==='aux-list'?'AUX|':containerId==='pan-list'?'PAN|':'';var key = item.p55 !== undefined ? prefix+item.n+'|55' : prefix+item.n+(item.unit?'|55':'');
       allItems.push({item:item, cat:cat, key:key});
     });
   });
