@@ -593,7 +593,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 
 <script>
 window._noop = function(){};
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWWDn1yXIFd0p7lxu0VZ2pa4Liuhr05pQeJrkAXMSHOdOQZhy0fifU0VORVcVP33B0-w/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw4GYkiK3pa1BRC3Rk8iKfdT21pXYBYXP4IIt7DJah7zXtxKKFu-dL3_8AHQG6BKQ1cnQ/exec';
 const FAB_PWD    = 'cassata2025';
 const MESES      = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const FESTIVOS   = new Set([
@@ -937,7 +937,7 @@ function sendOrder(){
     total: total,
     items: items.map(function(x){ return {key:x[0], qty:x[1].qty, price:x[1].price}; })
   });
-  var _url = 'https://script.google.com/macros/s/AKfycbwWWDn1yXIFd0p7lxu0VZ2pa4Liuhr05pQeJrkAXMSHOdOQZhy0fifU0VORVcVP33B0-w/exec';
+  var _url = 'https://script.google.com/macros/s/AKfycbw4GYkiK3pa1BRC3Rk8iKfdT21pXYBYXP4IIt7DJah7zXtxKKFu-dL3_8AHQG6BKQ1cnQ/exec';
   // Use sendBeacon for iOS reliability, fallback to fetch
   try {
     if (navigator.sendBeacon) {
@@ -1204,22 +1204,32 @@ async function fabLogin(){
   }
 }
 
-async function fabFetch(){
+async function fabFetch(limit){
   return new Promise(resolve=>{
     const cb='_cb'+Date.now();
     const s=document.createElement('script');
     window[cb]=function(d){ delete window[cb]; s.remove(); if(d&&d.ok) fabOrders=d.orders||[]; resolve(); };
     s.onerror=()=>{ delete window[cb]; s.remove(); resolve(); };
-    s.src=SCRIPT_URL+'?action=list&callback='+cb;
+    var url=SCRIPT_URL+'?action=list&callback='+cb;
+    if(limit) url+='&limit='+limit;
+    s.src=url;
     document.body.appendChild(s);
   });
 }
 
-async function fabRefresh(){
-  document.getElementById('fab-panel-list').innerHTML='<div class="empty-msg">Cargando pedidos…</div>';
-  await fabFetch();
+async function fabRefresh(limit){
+  document.getElementById('fab-panel-list').innerHTML='<div class="empty-msg">⏳ Cargando pedidos…</div>';
+  await fabFetch(limit||50);
   updateBadge();
   renderOrders();
+  // Show "load all" button if showing limited results
+  var panel = document.getElementById('fab-panel-list');
+  if(panel && (!limit || limit===50) && fabOrders.length===50){
+    var loadAllBtn = document.createElement('div');
+    loadAllBtn.style.cssText='text-align:center;padding:14px;';
+    loadAllBtn.innerHTML='<button onclick="fabRefresh(0)" style="background:var(--cream);border:1.5px solid var(--border);color:var(--navy);padding:10px 24px;border-radius:10px;font-family:DM Sans,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">📋 Cargar todos los pedidos</button>';
+    panel.appendChild(loadAllBtn);
+  }
 }
 
 function updateBadge(){
@@ -1921,7 +1931,7 @@ function loadMisPedidos(silent) {
     delete window[cb]; s.remove();
     if(!silent) el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);">Error de conexión</div>';
   };
-  s.src='https://script.google.com/macros/s/AKfycbwWWDn1yXIFd0p7lxu0VZ2pa4Liuhr05pQeJrkAXMSHOdOQZhy0fifU0VORVcVP33B0-w/exec?action=list&callback='+cb+'&t='+Date.now();
+  s.src='https://script.google.com/macros/s/AKfycbw4GYkiK3pa1BRC3Rk8iKfdT21pXYBYXP4IIt7DJah7zXtxKKFu-dL3_8AHQG6BKQ1cnQ/exec?action=list&callback='+cb+'&t='+Date.now();
   document.body.appendChild(s);
 }
 
@@ -2751,7 +2761,7 @@ function sendAiMessage() {
     _aiThinking = false;
     _addAiMessage('assistant', 'Lo siento, hubo un error de conexión. Por favor inténtalo de nuevo.');
   };
-  _s.src = 'https://script.google.com/macros/s/AKfycbwWWDn1yXIFd0p7lxu0VZ2pa4Liuhr05pQeJrkAXMSHOdOQZhy0fifU0VORVcVP33B0-w/exec?action=ai_chat&callback='+_cb+'&data='+encodeURIComponent(JSON.stringify({
+  _s.src = 'https://script.google.com/macros/s/AKfycbw4GYkiK3pa1BRC3Rk8iKfdT21pXYBYXP4IIt7DJah7zXtxKKFu-dL3_8AHQG6BKQ1cnQ/exec?action=ai_chat&callback='+_cb+'&data='+encodeURIComponent(JSON.stringify({
     action: 'ai_chat',
     system: systemPrompt,
     messages: _aiHistory
