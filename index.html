@@ -2987,34 +2987,8 @@ function sendIA() {
     messages: _iaChatHistory
   });
 
-  fetch(SCRIPT_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: {'Content-Type':'application/json'},
-    body: payload
-  }).then(function() {
-    // no-cors fallback - use JSONP approach
-  }).catch(function(){});
 
-  // Use JSONP for response
-  var cb = '_ia' + Date.now();
-  var s = document.createElement('script');
-  var fd = new FormData();
-  fd.append('data', payload);
-  window[cb] = function(d) {
-    delete window[cb]; s.remove();
-    var typing = document.getElementById('ia-typing');
-    if(typing) typing.remove();
-    var reply = '⚠️ Sin respuesta';
-    if(d && d.ok && d.content) reply = d.content;
-    else if(d && d.error) reply = '❌ Error: ' + d.error;
-    _iaChatHistory.push({role:'assistant', content: reply});
-    var msgsEl = document.getElementById('ia-messages');
-    if(msgsEl) {
-      msgsEl.innerHTML += '<div class="ia-msg-bot"><div class="ia-bubble-bot">' + reply.replace(/\n/g,'<br>') + '</div></div>';
-      msgsEl.scrollTop = msgsEl.scrollHeight;
-    }
-  };
+
   // Call Anthropic API directly from browser
   var parsedPayload = JSON.parse(payload);
   fetch('https://api.anthropic.com/v1/messages', {
@@ -3040,8 +3014,7 @@ function sendIA() {
     _iaChatHistory.push({role:'assistant', content: reply});
     var msgsEl = document.getElementById('ia-messages');
     if(msgsEl) {
-      msgsEl.innerHTML += '<div class="ia-msg-bot"><div class="ia-bubble-bot">' + reply.replace(/
-/g,'<br>') + '</div></div>';
+      msgsEl.innerHTML += '<div class="ia-msg-bot"><div class="ia-bubble-bot">' + reply.replace(/\n/g,'<br>') + '</div></div>';
       msgsEl.scrollTop = msgsEl.scrollHeight;
     }
   }).catch(function(e) {
