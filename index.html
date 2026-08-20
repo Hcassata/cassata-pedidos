@@ -3015,22 +3015,39 @@ function sendIA() {
       msgsEl.scrollTop = msgsEl.scrollHeight;
     }
   };
-  var frameName = '_iaframe_' + Date.now();
-  var iframe = document.createElement('iframe');
-  iframe.name = frameName;
-  iframe.style.cssText = 'display:none;width:0;height:0;';
-  document.body.appendChild(iframe);
-  var form2 = document.createElement('form');
-  form2.method = 'POST';
-  form2.action = SCRIPT_URL + '?callback=' + cb;
-  form2.target = frameName;
-  form2.style.display = 'none';
-  var inp2 = document.createElement('input');
-  inp2.type = 'hidden'; inp2.name = 'data'; inp2.value = payload;
-  form2.appendChild(inp2);
-  document.body.appendChild(form2);
-  form2.submit();
-  setTimeout(function(){ try{iframe.remove();form2.remove();}catch(e){} }, 35000);
+  // Call Anthropic API directly from browser
+  var parsedPayload = JSON.parse(payload);
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': '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',
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      system: parsedPayload.system || '',
+      messages: parsedPayload.messages || []
+    })
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    var typing = document.getElementById('ia-typing');
+    if(typing) typing.remove();
+    var reply = '⚠️ Sin respuesta';
+    if(d && d.content && d.content[0]) reply = d.content[0].text;
+    else if(d && d.error) reply = '❌ Error: ' + d.error.message;
+    _iaChatHistory.push({role:'assistant', content: reply});
+    var msgsEl = document.getElementById('ia-messages');
+    if(msgsEl) {
+      msgsEl.innerHTML += '<div class="ia-msg-bot"><div class="ia-bubble-bot">' + reply.replace(/
+/g,'<br>') + '</div></div>';
+      msgsEl.scrollTop = msgsEl.scrollHeight;
+    }
+  }).catch(function(e) {
+    var typing = document.getElementById('ia-typing');
+    if(typing) typing.innerHTML = '<div class="ia-bubble-bot">❌ Error: ' + e.message + '</div>';
+  });
 }
 
 // ── BADGE PULSANTE ───────────────────────────────────────────────────────────
