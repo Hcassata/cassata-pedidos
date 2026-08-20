@@ -2922,108 +2922,83 @@ function sendIA() {
   msgs.innerHTML += '<div class="ia-msg-bot" id="ia-typing"><div class="ia-bubble-bot"><div class="ia-typing"><div class="ia-dot"></div><div class="ia-dot"></div><div class="ia-dot"></div></div></div></div>';
   msgs.scrollTop = msgs.scrollHeight;
 
-  // Build context from fabOrders
+  // Build context from loaded orders
   var orders = fabOrders || [];
-  var now = new Date();
-  var thisMonth = now.getMonth();
-  var thisYear = now.getFullYear();
-
-  // Stats summary for context
   var byFranq = {}, byProd = {}, totalImp = 0, pendientes = 0;
   orders.forEach(function(o) {
     var hel = o.heladeria || 'Desconocida';
-    var items = o.items || [];
-    var imp = items.reduce(function(s,it){return s+(it.qty||0)*(it.price||0);},0);
-    if(!imp) imp = parseFloat(o.total)||0;
+    var imp = parseFloat(o.total) || 0;
     totalImp += imp;
-    if(o.status==='Pendiente') pendientes++;
-    if(!byFranq[hel]) byFranq[hel]={pedidos:0,importe:0,ultimo:''};
+    if (o.status === 'Pendiente') pendientes++;
+    if (!byFranq[hel]) byFranq[hel] = { pedidos: 0, importe: 0 };
     byFranq[hel].pedidos++;
-    byFranq[hel].importe+=imp;
-    if(!byFranq[hel].ultimo||o.createdAt>byFranq[hel].ultimo) byFranq[hel].ultimo=o.createdAt;
-    items.forEach(function(it){
-      var name=it.key.replace(/^(PAN|AUX)\|/,'').split('|')[0];
-      if(!byProd[name]) byProd[name]={qty:0,importe:0};
-      byProd[name].qty+=it.qty||0;
-      byProd[name].importe+=(it.qty||0)*(it.price||0);
+    byFranq[hel].importe += imp;
+    (o.items || []).forEach(function(it) {
+      var name = (it.key || '').replace(/^(PAN|AUX)\|/, '').split('|')[0];
+      if (!byProd[name]) byProd[name] = { qty: 0, importe: 0 };
+      byProd[name].qty += it.qty || 0;
+      byProd[name].importe += (it.qty || 0) * (it.price || 0);
     });
   });
 
   var topFranq = Object.entries(byFranq).sort(function(a,b){return b[1].importe-a[1].importe;}).slice(0,6);
   var topProd = Object.entries(byProd).sort(function(a,b){return b[1].importe-a[1].importe;}).slice(0,10);
 
-  var contextLines = [
-    'Eres el asistente de negocio de CASSATA HELADOS (Mundaka Helados S.L.), empresa de helados artesanos con franquicias en España.',
-    'Tienes acceso a los últimos ' + orders.length + ' pedidos del sistema.',
-    '',
-    'DATOS ACTUALES:',
-    '- Total pedidos: ' + orders.length,
-    '- Facturación total: ' + totalImp.toFixed(2) + ' EUR',
-    '- Pedidos pendientes: ' + pendientes,
-    '',
-    'RANKING FRANQUICIAS:'
-  ];
-  topFranq.forEach(function(e,i){
-    contextLines.push((i+1)+'. '+e[0]+': '+e[1].pedidos+' pedidos, '+e[1].importe.toFixed(0)+' EUR, ultimo: '+(e[1].ultimo||'?'));
-  });
-  contextLines.push('','TOP PRODUCTOS:');
-  topProd.forEach(function(e,i){
-    contextLines.push((i+1)+'. '+e[0]+': '+e[1].qty+' uds, '+e[1].importe.toFixed(0)+' EUR');
-  });
-  contextLines.push('','PEDIDOS RECIENTES:');
-  orders.slice(0,5).forEach(function(o){
-    contextLines.push('- '+o.id+' | '+(o.heladeria||'')+' | '+(o.createdAt||'')+' | '+(o.status||'')+' | '+(o.total||0)+' EUR');
-  });
-  contextLines.push('','Responde siempre en español, de forma concisa y útil.');
-  var context = contextLines.join('\n');
+  var ctx = [
+    'Eres el asistente de negocio de CASSATA HELADOS (Mundaka Helados S.L.), empresa de helados artesanos con franquicias en Espana.',
+    'Datos actuales (' + orders.length + ' pedidos cargados):',
+    'Facturacion total: ' + totalImp.toFixed(0) + ' EUR. Pendientes: ' + pendientes,
+    'Franquicias (por importe): ' + topFranq.map(function(e,i){return (i+1)+'.'+e[0]+' '+e[1].pedidos+'ped '+e[1].importe.toFixed(0)+'EUR';}).join(', '),
+    'Top productos: ' + topProd.map(function(e,i){return (i+1)+'.'+e[0]+' '+e[1].qty+'uds';}).join(', '),
+    'Responde en espanol, conciso y util.'
+  ].join(' | ');
 
   // Add to history
-  _iaChatHistory.push({role:'user', content: text});
+  _iaChatHistory.push({ role: 'user', content: text });
 
-  // Call via fetch to Apps Script
+  // Call via JSONP GET — payload simple sin caracteres especiales
+  var cb = '_ia' + Date.now();
+  var s = document.createElement('script');
+
+  window[cb] = function(d) {
+    delete window[cb];
+    s.remove();
+    var typing = document.getElementById('ia-typing');
+    if (typing) typing.remove();
+    var reply = 'Sin respuesta';
+    if (d && d.ok && d.content) reply = d.content;
+    else if (d && d.error) reply = 'Error: ' + d.error;
+    _iaChatHistory.push({ role: 'assistant', content: reply });
+    var msgsEl = document.getElementById('ia-messages');
+    if (msgsEl) {
+      msgsEl.innerHTML += '<div class="ia-msg-bot"><div class="ia-bubble-bot">' + reply.replace(/\n/g, '<br>') + '</div></div>';
+      msgsEl.scrollTop = msgsEl.scrollHeight;
+    }
+  };
+
+  s.onerror = function() {
+    delete window[cb];
+    s.remove();
+    var typing = document.getElementById('ia-typing');
+    if (typing) typing.innerHTML = '<div class="ia-bubble-bot">Error de conexion. Intentalo de nuevo.</div>';
+  };
+
+  // Send context + question + history as JSON via GET
   var payload = JSON.stringify({
     action: 'ai_chat',
-    system: context,
+    system: ctx,
     messages: _iaChatHistory
   });
 
+  // Use encodeURIComponent but replace the problematic chars manually first
+  var safePayload = payload
+    .replace(/[^ -]/g, function(c) { return encodeURIComponent(c); });
 
-
-  // Call Anthropic API directly from browser
-  var parsedPayload = JSON.parse(payload);
-  fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': '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',
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
-      system: parsedPayload.system || '',
-      messages: parsedPayload.messages || []
-    })
-  }).then(function(r){ return r.json(); }).then(function(d) {
-    var typing = document.getElementById('ia-typing');
-    if(typing) typing.remove();
-    var reply = '⚠️ Sin respuesta';
-    if(d && d.content && d.content[0]) reply = d.content[0].text;
-    else if(d && d.error) reply = '❌ Error: ' + d.error.message;
-    _iaChatHistory.push({role:'assistant', content: reply});
-    var msgsEl = document.getElementById('ia-messages');
-    if(msgsEl) {
-      msgsEl.innerHTML += '<div class="ia-msg-bot"><div class="ia-bubble-bot">' + reply.replace(/\n/g,'<br>') + '</div></div>';
-      msgsEl.scrollTop = msgsEl.scrollHeight;
-    }
-  }).catch(function(e) {
-    var typing = document.getElementById('ia-typing');
-    if(typing) typing.innerHTML = '<div class="ia-bubble-bot">❌ Error: ' + e.message + '</div>';
-  });
+  s.src = SCRIPT_URL + '?callback=' + cb + '&data=' + encodeURIComponent(safePayload);
+  document.body.appendChild(s);
 }
 
-// ── BADGE PULSANTE ───────────────────────────────────────────────────────────
+
 function updateBadge() {
   var pending = (fabOrders||[]).filter(function(o){ return o.status === 'Pendiente'; }).length;
   var badge = document.getElementById('badge-count');
