@@ -3015,13 +3015,22 @@ function sendIA() {
       msgsEl.scrollTop = msgsEl.scrollHeight;
     }
   };
-  s.onerror = function() {
-    delete window[cb]; s.remove();
-    var typing = document.getElementById('ia-typing');
-    if(typing) typing.innerHTML = '<div class="ia-bubble-bot">❌ Error de conexión. Inténtalo de nuevo.</div>';
-  };
-  s.src = SCRIPT_URL + '?callback=' + cb + '&data=' + encodeURIComponent(payload);
-  document.body.appendChild(s);
+  var frameName = '_iaframe_' + Date.now();
+  var iframe = document.createElement('iframe');
+  iframe.name = frameName;
+  iframe.style.cssText = 'display:none;width:0;height:0;';
+  document.body.appendChild(iframe);
+  var form2 = document.createElement('form');
+  form2.method = 'POST';
+  form2.action = SCRIPT_URL + '?callback=' + cb;
+  form2.target = frameName;
+  form2.style.display = 'none';
+  var inp2 = document.createElement('input');
+  inp2.type = 'hidden'; inp2.name = 'data'; inp2.value = payload;
+  form2.appendChild(inp2);
+  document.body.appendChild(form2);
+  form2.submit();
+  setTimeout(function(){ try{iframe.remove();form2.remove();}catch(e){} }, 35000);
 }
 
 // ── BADGE PULSANTE ───────────────────────────────────────────────────────────
