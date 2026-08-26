@@ -2980,47 +2980,38 @@ function sendIA() {
   // Add to history
   _iaChatHistory.push({role:'user', content: text});
 
-  // Call via fetch to Apps Script
-  var payload = JSON.stringify({
-    action: 'ai_chat',
-    system: context,
-    messages: _iaChatHistory
-  });
+  // Keep the outgoing URL short: only send the last few turns
+  var _iaSendHistory = _iaChatHistory.slice(-8);
 
-
-
-  // Call Anthropic API directly from browser
-  var parsedPayload = JSON.parse(payload);
-  fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': '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',
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
-      system: parsedPayload.system || '',
-      messages: parsedPayload.messages || []
-    })
-  }).then(function(r){ return r.json(); }).then(function(d) {
+  // Call Claude via Apps Script proxy (JSONP) — never call Anthropic directly
+  // from the browser: any key embedded in this public HTML gets auto-revoked.
+  var _iaCb = '_iaChat' + Date.now();
+  var _iaScript = document.createElement('script');
+  window[_iaCb] = function(data) {
+    delete window[_iaCb]; _iaScript.remove();
     var typing = document.getElementById('ia-typing');
     if(typing) typing.remove();
     var reply = '⚠️ Sin respuesta';
-    if(d && d.content && d.content[0]) reply = d.content[0].text;
-    else if(d && d.error) reply = '❌ Error: ' + d.error.message;
+    if (data && data.ok && data.content && data.content[0]) reply = data.content[0].text;
+    else if (data && data.error) reply = '❌ Error: ' + (data.error.message || data.error);
     _iaChatHistory.push({role:'assistant', content: reply});
     var msgsEl = document.getElementById('ia-messages');
     if(msgsEl) {
       msgsEl.innerHTML += '<div class="ia-msg-bot"><div class="ia-bubble-bot">' + reply.replace(/\n/g,'<br>') + '</div></div>';
       msgsEl.scrollTop = msgsEl.scrollHeight;
     }
-  }).catch(function(e) {
+  };
+  _iaScript.onerror = function() {
+    delete window[_iaCb]; _iaScript.remove();
     var typing = document.getElementById('ia-typing');
-    if(typing) typing.innerHTML = '<div class="ia-bubble-bot">❌ Error: ' + e.message + '</div>';
-  });
+    if(typing) typing.innerHTML = '<div class="ia-bubble-bot">❌ Error de conexión. Inténtalo de nuevo.</div>';
+  };
+  _iaScript.src = SCRIPT_URL + '?action=ai_chat&callback=' + _iaCb + '&data=' + encodeURIComponent(JSON.stringify({
+    action: 'ai_chat',
+    system: context,
+    messages: _iaSendHistory
+  }));
+  document.body.appendChild(_iaScript);
 }
 
 // ── BADGE PULSANTE ───────────────────────────────────────────────────────────
