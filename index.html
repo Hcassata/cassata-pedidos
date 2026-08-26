@@ -1188,7 +1188,9 @@ function resetApp(){
 
 // ── FACTORY PANEL ─────────────────────────────────────────────
 let fabLoggedIn=false;
-let fabOrders=[];
+let fabOrders=[];      // active orders only (Pendiente / En preparación) — fast, complete
+let fabAllOrders=[];   // full order history — used for stats/informes/mapa/IA, fetched on demand
+let _allOrdersLoadedAt=0;
 
 function openFab(){ document.getElementById('fab-overlay').classList.add('open'); if(fabLoggedIn) fabRefresh(); else fabTab('list'); }
 function closeFab(){ document.getElementById('fab-overlay').classList.remove('open'); }
@@ -1206,32 +1208,11 @@ async function fabLogin(){
   }
 }
 
-async function fabFetch(limit){
-  return new Promise(resolve=>{
-    const cb='_cb'+Date.now();
-    const s=document.createElement('script');
-    window[cb]=function(d){ delete window[cb]; s.remove(); if(d&&d.ok) fabOrders=d.orders||[]; resolve(); };
-    s.onerror=()=>{ delete window[cb]; s.remove(); resolve(); };
-    var url=SCRIPT_URL+'?action=list&callback='+cb;
-    if(limit) url+='&limit='+limit;
-    s.src=url;
-    document.body.appendChild(s);
-  });
-}
-
-async function fabRefresh(limit){
+async function fabRefresh(){
   document.getElementById('fab-panel-list').innerHTML='<div class="empty-msg">⏳ Cargando pedidos…</div>';
-  await fabFetch(limit||50);
+  await fabFetchActive();
   updateBadge();
   renderOrders();
-  // Show "load all" button if showing limited results
-  var panel = document.getElementById('fab-panel-list');
-  if(panel && (!limit || limit===50) && fabOrders.length===50){
-    var loadAllBtn = document.createElement('div');
-    loadAllBtn.style.cssText='text-align:center;padding:14px;';
-    loadAllBtn.innerHTML='<button onclick="fabRefresh(0)" style="background:var(--cream);border:1.5px solid var(--border);color:var(--navy);padding:10px 24px;border-radius:10px;font-family:DM Sans,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">📋 Cargar todos los pedidos</button>';
-    panel.appendChild(loadAllBtn);
-  }
 }
 
 function updateBadge(){
@@ -1246,7 +1227,7 @@ async function fabTab(t){
     var tb=document.getElementById('ftab-'+p); if(tb) tb.classList.toggle('active',t===p);
   });
   if(t==='list') { await fabRefresh(); }
-  else if(t==='stats') renderStats();
+  else if(t==='stats') { await ensureAllOrdersWithSpinner('fab-panel-stats'); renderStats(); }
   else if(t==='franq') {
     var fp=document.getElementById('fab-panel-franq');
     if(fp) fp.innerHTML=Object.entries(PIN_MAP).map(function(e){
@@ -1259,12 +1240,30 @@ async function fabTab(t){
       el.addEventListener('click',function(){showFranquiciaPedidos(this.getAttribute('data-nombre'));});
     });
   } else if(t==='informe') {
+    await ensureAllOrdersWithSpinner('fab-panel-informe');
     renderInformes();
   } else if(t==='mapa') {
+    await ensureAllOrdersWithSpinner('fab-panel-mapa');
     renderMapa();
   } else if(t==='ia') {
+    await ensureAllOrders();
     renderIA();
   }
+}
+
+// Fetches the complete order history (all statuses, no cap) for stats/informes/mapa/IA.
+// Cached for a minute so switching tabs repeatedly doesn't refetch every time.
+async function ensureAllOrders(force){
+  var stale = (Date.now() - _allOrdersLoadedAt) > 60000;
+  if (force || stale || !fabAllOrders.length) await fabFetchAll();
+}
+async function ensureAllOrdersWithSpinner(panelId){
+  var needsFetch = (Date.now() - _allOrdersLoadedAt) > 60000 || !fabAllOrders.length;
+  if (needsFetch) {
+    var el = document.getElementById(panelId);
+    if (el) el.innerHTML = '<div class="empty-msg">⏳ Cargando histórico completo de pedidos…</div>';
+  }
+  await ensureAllOrders();
 }
 function statusLabel(s){
   if(s==='En preparación') return '<span class="order-status status-ready">⚙️ En preparación</span>';
@@ -1603,7 +1602,7 @@ function renderStats() {
   }
 
   // ── Filter orders by period ───────────────────────────────────────────────
-  var orders = (fabOrders || []).filter(function(o) {
+  var orders = (fabAllOrders || []).filter(function(o) {
     if (!o.fecha) return false;
     var d;
     try {
@@ -1817,14 +1816,31 @@ if(isIOS&&!isStandalone&&!localStorage.getItem('ios-hint-dismissed')){{
 buildAll();
 
 // ── FETCH-BASED FAB ──────────────────────────────────────────────────────────
-async function fabFetch() {
+// Active orders (Pendiente / En preparación) only — small, fast, always complete.
+async function fabFetchActive() {
   try {
-    var r = await fetch(SCRIPT_URL+'?action=list');
+    var r = await fetch(SCRIPT_URL+'?action=list&status=activos');
     var d = await r.json();
     if(d && d.ok) fabOrders = d.orders || [];
-  } catch(e) { console.warn('fabFetch error:', e); }
+  } catch(e) { console.warn('fabFetchActive error:', e); }
 }
-fabFetch().then(updateBadge);
+// Full order history, every status, no cap — used for stats/informes/mapa/IA.
+async function fabFetchAll() {
+  try {
+    var r = await fetch(SCRIPT_URL+'?action=list&limit=all');
+    var d = await r.json();
+    if(d && d.ok) fabAllOrders = d.orders || [];
+    _allOrdersLoadedAt = Date.now();
+  } catch(e) { console.warn('fabFetchAll error:', e); }
+  return fabAllOrders;
+}
+// Looks in the active set first, falls back to the full history (for orders already marked Enviado).
+function findOrderById(id) {
+  var o = (fabOrders||[]).find(function(x){return x.id===id;});
+  if (!o) o = (fabAllOrders||[]).find(function(x){return x.id===id;});
+  return o;
+}
+fabFetchActive().then(updateBadge);
 
 // ── FACTORY TAB WITH FRANQ ───────────────────────────────────────────────────
 var _origFabTab = fabTab;
@@ -1983,8 +1999,9 @@ function showPedidoDetalle(idx) {
   showOrderModal(o,false);
 }
 
-function showFranquiciaPedidos(nombre) {
-  var orders=(fabOrders||[]).filter(function(o){return o.heladeria===nombre;});
+async function showFranquiciaPedidos(nombre) {
+  await ensureAllOrders();
+  var orders=(fabAllOrders||[]).filter(function(o){return o.heladeria===nombre;});
   var modal=document.createElement('div');
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(27,45,107,.5);z-index:700;display:flex;align-items:flex-end;justify-content:center;';
   var lista=orders.length?orders.map(function(o){
@@ -2003,12 +2020,12 @@ function showFranquiciaPedidos(nombre) {
   document.body.appendChild(modal);
   var cb=modal.querySelector('.modal-close-btn'); if(cb)cb.addEventListener('click',function(){modal.remove();});
   modal.querySelectorAll('.fab-order-card').forEach(function(el){
-    el.addEventListener('click',function(e){e.stopPropagation();var o2=(fabOrders||[]).find(function(x){return x.id===this.getAttribute('data-id');}.bind(this));if(o2)showOrderModal(o2,true);});
+    el.addEventListener('click',function(e){e.stopPropagation();var o2=findOrderById(this.getAttribute('data-id'));if(o2)showOrderModal(o2,true);});
   });
 }
 
 function dlPedidoHTML(id) {
-  var o=(fabOrders||[]).find(function(x){return x.id===id;});
+  var o=findOrderById(id);
   if(!o)return;
   var it=(o.items||[]).map(function(i){return [i.key,{qty:i.qty,price:i.price}];});
   // Calculate total from items (most reliable), fallback to stored total
@@ -2925,8 +2942,8 @@ function sendIA() {
   msgs.innerHTML += '<div class="ia-msg-bot" id="ia-typing"><div class="ia-bubble-bot"><div class="ia-typing"><div class="ia-dot"></div><div class="ia-dot"></div><div class="ia-dot"></div></div></div></div>';
   msgs.scrollTop = msgs.scrollHeight;
 
-  // Build context from fabOrders
-  var orders = fabOrders || [];
+  // Build context from the full order history (not just the active list)
+  var orders = fabAllOrders || [];
   var now = new Date();
   var thisMonth = now.getMonth();
   var thisYear = now.getFullYear();
@@ -2957,7 +2974,7 @@ function sendIA() {
 
   var contextLines = [
     'Eres el asistente de negocio de CASSATA HELADOS (Mundaka Helados S.L.), empresa de helados artesanos con franquicias en España.',
-    'Tienes acceso a los últimos ' + orders.length + ' pedidos del sistema.',
+    'Tienes acceso al histórico completo: ' + orders.length + ' pedidos del sistema.',
     '',
     'DATOS ACTUALES:',
     '- Total pedidos: ' + orders.length,
@@ -3102,9 +3119,9 @@ function renderInformes() {
   var el = document.getElementById('fab-panel-informe');
   if (!el) return;
 
-  // Get available months from fabOrders
+  // Get available months from the full order history
   var months = {};
-  (fabOrders||[]).forEach(function(o) {
+  (fabAllOrders||[]).forEach(function(o) {
     if (!o.fecha) return;
     try {
       var s = String(o.fecha);
@@ -3156,8 +3173,8 @@ function renderInformes() {
 function getFilteredOrders() {
   var mes = document.getElementById('informe-mes');
   var mesVal = mes ? mes.value : 'all';
-  if (mesVal === 'all') return fabOrders || [];
-  return (fabOrders||[]).filter(function(o) {
+  if (mesVal === 'all') return fabAllOrders || [];
+  return (fabAllOrders||[]).filter(function(o) {
     if (!o.fecha) return false;
     try {
       var s = String(o.fecha);
@@ -3473,7 +3490,7 @@ function renderMapa() {
   // Calculate last order date per franchise
   var lastOrder = {};
   var monthImporte = {};
-  (fabOrders||[]).forEach(function(o) {
+  (fabAllOrders||[]).forEach(function(o) {
     var hel = o.heladeria;
     if (!hel) return;
     var items = o.items||[];
@@ -3529,7 +3546,7 @@ function renderMapa() {
       var last = lastOrder[nombre];
       var diasSinPedir = last ? Math.floor((now - last) / (1000*60*60*24)) : 999;
       var imp = monthImporte[nombre] || 0;
-      var pedidos = (fabOrders||[]).filter(function(o){return o.heladeria===nombre;}).length;
+      var pedidos = (fabAllOrders||[]).filter(function(o){return o.heladeria===nombre;}).length;
 
       // Color by activity
       var color = diasSinPedir <= 7 ? '#22C55E' : diasSinPedir <= 14 ? '#F5C518' : '#EF4444';
@@ -3573,7 +3590,7 @@ var _prevStatuses = {};
 var _refreshTimer = null;
 
 async function refreshPanel() {
-  await fabFetch();
+  await fabFetchActive();
   fabOrders.forEach(function(o) {
     if (_prevStatuses[o.id] && _prevStatuses[o.id] !== o.status) {
       var cards = document.querySelectorAll('.order-card');
