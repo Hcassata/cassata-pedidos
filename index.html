@@ -1764,9 +1764,9 @@ function renderStats() {
     // By producto
     items.forEach(function(it) {
       var key = it.key || '';
-      var parts = key.split('|');
-      var name = parts[0].replace('AUX|','').replace('PAN|','');
-      var isGrS=['granizado','horchata','agua cebada','leche preparada'].some(function(g){return parts[0].toLowerCase().indexOf(g)>-1;})&&parts[0].toLowerCase().indexOf('polo')<0;var size = parts[1] ? ' '+(parts[1]==='55'?(isGrS?'10L':'5,5L'):parts[1]==='25'?(isGrS?'5L':'2,5L'):'') : '';
+      var name = key.replace('AUX|','').replace('PAN|','').split('|')[0];
+      var sizeCode = key.split('|')[1];
+      var isGrS=['granizado','horchata','agua cebada','leche preparada'].some(function(g){return name.toLowerCase().indexOf(g)>-1;})&&name.toLowerCase().indexOf('polo')<0;var size = sizeCode ? (sizeCode==='55'?' '+(isGrS?'10L':'5,5L'):sizeCode==='25'?' '+(isGrS?'5L':'2,5L'):'') : '';
       var label = name + size;
       if (!byProducto[label]) byProducto[label] = {qty:0, importe:0};
       byProducto[label].qty += it.qty || 0;
