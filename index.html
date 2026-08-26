@@ -581,7 +581,17 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
           <button class="fab-tab" id="ftab-mapa" onclick="fabTab('mapa')">🗺️ Red</button>
           <button class="fab-tab" id="ftab-ia" onclick="fabTab('ia')">🤖 IA</button>
         </div>
-        <div id="fab-panel-list"><div class="empty-msg">Cargando pedidos…</div></div>
+        <div id="fab-panel-list">
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+            <button id="flt-activos" class="fab-filter-chip" data-mode="activos" onclick="setListMode('activos')" style="padding:8px 16px;border-radius:20px;border:1.5px solid var(--navy);background:var(--navy);color:#fff;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">🟢 Activos</button>
+            <button id="flt-historico" class="fab-filter-chip" data-mode="historico" onclick="setListMode('historico')" style="padding:8px 16px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--navy);font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">🕓 Histórico</button>
+            <div id="fab-hist-subfilters" style="display:none;gap:8px;flex-wrap:wrap;">
+              <select id="hist-franq" onchange="applyHistFilters()" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;color:var(--navy);background:#fff;"><option value="">Todas las franquicias</option></select>
+              <select id="hist-mes" onchange="applyHistFilters()" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;color:var(--navy);background:#fff;"><option value="">Todos los meses</option></select>
+            </div>
+          </div>
+          <div id="fab-list-body"><div class="empty-msg">Cargando pedidos…</div></div>
+        </div>
         <div id="fab-panel-stats" style="display:none"></div>
         <div id="fab-panel-franq" style="display:none"></div>
         <div id="fab-panel-informe" style="display:none"></div>
@@ -1191,6 +1201,9 @@ let fabLoggedIn=false;
 let fabOrders=[];      // active orders only (Pendiente / En preparación) — fast, complete
 let fabAllOrders=[];   // full order history — used for stats/informes/mapa/IA, fetched on demand
 let _allOrdersLoadedAt=0;
+let fabListMode='activos'; // 'activos' | 'historico' — which view the Pedidos tab shows
+let fabHistFranq='';
+let fabHistMes='';
 
 function openFab(){ document.getElementById('fab-overlay').classList.add('open'); if(fabLoggedIn) fabRefresh(); else fabTab('list'); }
 function closeFab(){ document.getElementById('fab-overlay').classList.remove('open'); }
@@ -1209,10 +1222,103 @@ async function fabLogin(){
 }
 
 async function fabRefresh(){
-  document.getElementById('fab-panel-list').innerHTML='<div class="empty-msg">⏳ Cargando pedidos…</div>';
+  if (fabListMode !== 'historico') {
+    document.getElementById('fab-list-body').innerHTML='<div class="empty-msg">⏳ Cargando pedidos…</div>';
+  }
   await fabFetchActive();
   updateBadge();
-  renderOrders();
+  if (fabListMode === 'historico') {
+    await ensureAllOrders();
+    populateHistFilters();
+    renderHistorico();
+  } else {
+    renderOrders();
+  }
+}
+
+// ── Histórico: browse the full order history from the Pedidos tab, filterable by franchise/month ──
+function setListMode(mode){
+  fabListMode = mode;
+  var bA=document.getElementById('flt-activos'), bH=document.getElementById('flt-historico');
+  if (bA) { bA.style.background = mode==='activos'?'var(--navy)':'#fff'; bA.style.color = mode==='activos'?'#fff':'var(--navy)'; bA.style.borderColor = mode==='activos'?'var(--navy)':'var(--border)'; }
+  if (bH) { bH.style.background = mode==='historico'?'var(--navy)':'#fff'; bH.style.color = mode==='historico'?'#fff':'var(--navy)'; bH.style.borderColor = mode==='historico'?'var(--navy)':'var(--border)'; }
+  var sub=document.getElementById('fab-hist-subfilters');
+  if (sub) sub.style.display = mode==='historico' ? 'flex' : 'none';
+  if (mode === 'activos') {
+    renderOrders();
+  } else {
+    if (!fabAllOrders.length) document.getElementById('fab-list-body').innerHTML='<div class="empty-msg">⏳ Cargando histórico completo de pedidos…</div>';
+    ensureAllOrders().then(function(){ populateHistFilters(); renderHistorico(); });
+  }
+}
+
+function populateHistFilters(){
+  var fSel=document.getElementById('hist-franq');
+  if (fSel && !fSel.dataset.built) {
+    fSel.innerHTML = '<option value="">Todas las franquicias</option>' +
+      Object.values(PIN_MAP).map(function(n){ return '<option value="'+n+'">'+n+'</option>'; }).join('');
+    fSel.dataset.built = '1';
+  }
+  var mSel=document.getElementById('hist-mes');
+  if (mSel) {
+    var keys={};
+    (fabAllOrders||[]).forEach(function(o){
+      var d=parseFechaCassata(o.fecha);
+      if (!d) return;
+      var k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      keys[k]=MESES[d.getMonth()]+' '+d.getFullYear();
+    });
+    var sortedKeys=Object.keys(keys).sort().reverse();
+    var current=mSel.value;
+    mSel.innerHTML='<option value="">Todos los meses</option>'+sortedKeys.map(function(k){return '<option value="'+k+'">'+keys[k]+'</option>';}).join('');
+    if (sortedKeys.indexOf(current)>-1) mSel.value=current;
+  }
+}
+
+function parseFechaCassata(fecha){
+  if (!fecha) return null;
+  try {
+    var s=String(fecha).trim();
+    var d;
+    if (s.indexOf('/')>-1) { var p=s.split(' ')[0].split('/'); d=new Date(+p[2],+p[1]-1,+p[0]); }
+    else { var p=s.split('T')[0].split('-'); d=new Date(+p[0],+p[1]-1,+p[2]); }
+    return isNaN(d.getTime()) ? null : d;
+  } catch(e) { return null; }
+}
+
+function applyHistFilters(){
+  fabHistFranq = document.getElementById('hist-franq').value;
+  fabHistMes   = document.getElementById('hist-mes').value;
+  renderHistorico();
+}
+
+function renderHistorico(){
+  var el=document.getElementById('fab-list-body');
+  if (!el) return;
+  var orders=(fabAllOrders||[]).filter(function(o){
+    if (fabHistFranq && o.heladeria!==fabHistFranq) return false;
+    if (fabHistMes) {
+      var d=parseFechaCassata(o.fecha);
+      var k=d?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')):'';
+      if (k!==fabHistMes) return false;
+    }
+    return true;
+  });
+  if (!orders.length){ el.innerHTML='<div class="empty-msg">No hay pedidos con estos filtros.</div>'; return; }
+  el.innerHTML=orders.map(function(o){
+    var tot=o.total>0?parseFloat(o.total).toFixed(2)+' €':'—';
+    return '<div class="order-card fab-hist-card" data-id="'+o.id+'">'+
+      '<div class="order-card-top"><span class="order-heladeria">'+o.heladeria+'</span>'+statusLabel(o.status)+'</div>'+
+      '<div class="order-meta">📅 Entrega: <strong>'+fmtDate(o.fecha)+'</strong> · 👤 '+(o.contacto||'—')+'</div>'+
+      '<div class="order-total">Total: '+tot+' · '+(o.items||[]).length+' líneas</div>'+
+      '</div>';
+  }).join('');
+  el.querySelectorAll('.fab-hist-card').forEach(function(card){
+    card.addEventListener('click', function(){
+      var o=findOrderById(this.getAttribute('data-id'));
+      if (o) showOrderModal(o, true);
+    });
+  });
 }
 
 function updateBadge(){
@@ -1272,8 +1378,8 @@ function statusLabel(s){
 }
 
 function renderOrders(){
-  const el=document.getElementById('fab-panel-list');
-  if(!fabOrders.length){ el.innerHTML='<div class="empty-msg">No hay pedidos todavía.</div>'; return; }
+  const el=document.getElementById('fab-list-body');
+  if(!fabOrders.length){ el.innerHTML='<div class="empty-msg">No hay pedidos activos ahora mismo.</div>'; return; }
   el.innerHTML=fabOrders.map((o,i)=>{
     const tot=o.total>0?parseFloat(o.total).toFixed(2)+' €':'—';
     return `<div class="order-card" onclick="showDetail(${i})">
