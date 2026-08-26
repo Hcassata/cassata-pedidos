@@ -3710,7 +3710,7 @@ async function refreshPanel() {
     }
     _prevStatuses[o.id] = o.status;
   });
-  renderOrders();
+  if (fabListMode !== 'historico') renderOrders();
   updateBadge();
 }
 
