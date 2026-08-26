@@ -2717,7 +2717,10 @@ function sendAiMessage() {
     delete window[_cb]; _s.remove();
     _removeThinking();
     _aiThinking = false;
-    var responseText = (data.ok && data.content && data.content[0]) ? data.content[0].text : 'Lo siento, no pude procesar tu solicitud.';
+    var responseText = 'Lo siento, no pude procesar tu solicitud.';
+    if (data && data.ok && data.content) {
+      responseText = (typeof data.content === 'string') ? data.content : ((data.content[0] && data.content[0].text) || responseText);
+    }
     
     // Extract JSON action if present
     var jsonMatch = responseText.match(/\{"accion":"añadir_productos"[^}]+\}|\{\s*"accion"\s*:\s*"añadir_productos"[\s\S]*?\}(?=\s*$|\s*\n)/);
@@ -2992,8 +2995,9 @@ function sendIA() {
     var typing = document.getElementById('ia-typing');
     if(typing) typing.remove();
     var reply = '⚠️ Sin respuesta';
-    if (data && data.ok && data.content && data.content[0]) reply = data.content[0].text;
-    else if (data && data.error) reply = '❌ Error: ' + (data.error.message || data.error);
+    if (data && data.ok && data.content) {
+      reply = (typeof data.content === 'string') ? data.content : ((data.content[0] && data.content[0].text) || reply);
+    } else if (data && data.error) reply = '❌ Error: ' + (data.error.message || data.error);
     _iaChatHistory.push({role:'assistant', content: reply});
     var msgsEl = document.getElementById('ia-messages');
     if(msgsEl) {
