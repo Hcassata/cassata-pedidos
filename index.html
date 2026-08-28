@@ -380,6 +380,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
         <div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;color:var(--navy);">Mis pedidos</div>
         <button id="btn-nuevo" style="padding:10px 18px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;cursor:pointer;touch-action:manipulation;">+ Nuevo pedido</button>
       </div>
+      <div id="mis-pedidos-insight"></div>
       <div id="historial-list"></div>
     </div>
   </div>
@@ -668,6 +669,7 @@ function selectDate(iso,d){
   document.getElementById('cal-display-txt').textContent=txt;
   document.getElementById('cal-display-txt').style.color='var(--text)';
   closeCal();
+  saveDraft();
 }
 document.getElementById('cal-overlay').addEventListener('click',function(e){ if(e.target===this) closeCal(); });
 
@@ -783,9 +785,84 @@ function chg(key,delta,price){
   qtys[key].price=price;
   const el=document.getElementById(safeId(key));
   if(el){ el.textContent=qtys[key].qty; el.classList.toggle('has-qty',qtys[key].qty>0); }
+  saveDraft();
 }
 function getItems(){ return Object.entries(qtys).filter(([k,v])=>v.qty>0); }
 function getTotal(){ return getItems().reduce((s,[k,v])=>s+v.qty*v.price,0); }
+
+// ── DRAFT AUTOSAVE (pedido en curso, por si se cierra la pestaña a medias) ──
+const DRAFT_KEY = 'cassata_draft_v1';
+function saveDraft(){
+  try {
+    if (!window.currentFranquicia) return;
+    var contactoEl=document.getElementById('contacto'), telefonoEl=document.getElementById('telefono'), obsEl=document.getElementById('obs'), fechaEl=document.getElementById('fecha');
+    var hasContent = getItems().length || (contactoEl&&contactoEl.value) || (telefonoEl&&telefonoEl.value) || (fechaEl&&fechaEl.value);
+    if (!hasContent) { clearDraft(); return; }
+    var fechaTxtEl=document.getElementById('cal-display-txt');
+    var draft = {
+      franquicia: window.currentFranquicia.nombre,
+      qtys: qtys,
+      contacto: contactoEl?contactoEl.value:'',
+      telefono: telefonoEl?telefonoEl.value:'',
+      obs: obsEl?obsEl.value:'',
+      fecha: fechaEl?fechaEl.value:'',
+      fechaTxt: fechaTxtEl?fechaTxtEl.textContent:'',
+      savedAt: Date.now()
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch(e) {}
+}
+function clearDraft(){ try { localStorage.removeItem(DRAFT_KEY); } catch(e) {} }
+function syncQtyDisplay(){
+  Object.keys(qtys).forEach(function(key){
+    var el = document.getElementById(safeId(key));
+    if (el) { el.textContent = qtys[key].qty; el.classList.toggle('has-qty', qtys[key].qty>0); }
+  });
+}
+function maybeOfferDraftRestore(){
+  try {
+    var raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    var draft = JSON.parse(raw);
+    if (!draft || !window.currentFranquicia || draft.franquicia !== window.currentFranquicia.nombre) return;
+    if (Date.now() - (draft.savedAt||0) > 7*24*60*60*1000) { clearDraft(); return; }
+    var hasItems = draft.qtys && Object.keys(draft.qtys).some(function(k){return draft.qtys[k].qty>0;});
+    if (!hasItems) return;
+    showDraftBanner(draft);
+  } catch(e) {}
+}
+function showDraftBanner(draft){
+  var old = document.getElementById('draft-banner');
+  if (old) old.remove();
+  var n = Object.values(draft.qtys).reduce(function(s,v){return s+(v.qty>0?v.qty:0);},0);
+  var banner = document.createElement('div');
+  banner.id = 'draft-banner';
+  banner.style.cssText = 'position:fixed;left:16px;right:16px;bottom:90px;background:var(--navy);color:#fff;border-radius:16px;padding:16px 18px;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:750;max-width:420px;margin:0 auto;';
+  banner.innerHTML =
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:800;margin-bottom:4px;">📝 Tienes un pedido sin terminar</div>' +
+    '<div style="font-size:13px;color:rgba(255,255,255,.8);margin-bottom:12px;">'+n+' unidad'+(n===1?'':'es')+' seleccionada'+(n===1?'':'s')+'. ¿Quieres continuarlo?</div>' +
+    '<div style="display:flex;gap:10px;">' +
+    '<button id="draft-discard" style="flex:1;padding:10px;border:1.5px solid rgba(255,255,255,.4);background:transparent;color:#fff;border-radius:10px;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Descartar</button>' +
+    '<button id="draft-continue" style="flex:1;padding:10px;background:#F5C518;color:var(--navy);border:none;border-radius:10px;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:800;cursor:pointer;">Continuar</button>' +
+    '</div>';
+  document.body.appendChild(banner);
+  document.getElementById('draft-discard').addEventListener('click', function(){ clearDraft(); banner.remove(); });
+  document.getElementById('draft-continue').addEventListener('click', function(){ applyDraft(draft); banner.remove(); });
+}
+function applyDraft(draft){
+  qtys = draft.qtys || {};
+  var contactoEl=document.getElementById('contacto'), telefonoEl=document.getElementById('telefono'), obsEl=document.getElementById('obs');
+  if (draft.contacto && contactoEl) contactoEl.value = draft.contacto;
+  if (draft.telefono && telefonoEl) telefonoEl.value = draft.telefono;
+  if (draft.obs && obsEl) obsEl.value = draft.obs;
+  if (draft.fecha) {
+    document.getElementById('fecha').value = draft.fecha;
+    var fechaTxtEl=document.getElementById('cal-display-txt');
+    if (draft.fechaTxt && fechaTxtEl) { fechaTxtEl.textContent = draft.fechaTxt; fechaTxtEl.style.color='var(--text)'; }
+  }
+  buildAll();
+  syncQtyDisplay();
+}
 
 // ── BUILD PRODUCT LISTS ───────────────────────────────────────
 function _baseBuildList(cats, containerId){
@@ -976,6 +1053,7 @@ function sendOrder(){
   // Show success immediately - don't wait for download
   document.getElementById('success-resumen').innerHTML=document.getElementById('resumen-card').innerHTML;
   show('s3','s4');
+  clearDraft();
   document.getElementById('bottom-bar').style.display='none';
   var wabtn = document.getElementById('btn-whatsapp');
   if (wabtn) { wabtn.onclick = shareWhatsApp; }
@@ -1286,6 +1364,34 @@ function parseFechaCassata(fecha){
     else { var p=s.split('T')[0].split('-'); d=new Date(+p[0],+p[1]-1,+p[2]); }
     return isNaN(d.getTime()) ? null : d;
   } catch(e) { return null; }
+}
+
+// ── CONSUMPTION INSIGHT (franchisee's own order history) ─────────────────────
+function renderMisPedidosInsight(orders){
+  var el = document.getElementById('mis-pedidos-insight');
+  if (!el) return;
+  if (!orders || orders.length < 2) { el.innerHTML=''; return; }
+  var dates = orders.map(function(o){ return parseFechaCassata(o.createdAt); }).filter(Boolean).sort(function(a,b){return a-b;});
+  var cadenciaTxt = '';
+  if (dates.length >= 2) {
+    var totalDays = (dates[dates.length-1] - dates[0]) / (1000*60*60*24);
+    var avgDays = Math.round(totalDays / (dates.length-1));
+    if (avgDays > 0) cadenciaTxt = 'Pides cada ~' + avgDays + ' día' + (avgDays===1?'':'s') + ' de media';
+  }
+  var byProd = {};
+  orders.forEach(function(o){
+    (o.items||[]).forEach(function(it){
+      var key = it.key || '';
+      var name = key.replace('AUX|','').replace('PAN|','').split('|')[0];
+      if (!name) return;
+      byProd[name] = (byProd[name]||0) + (it.qty||0);
+    });
+  });
+  var topProd = Object.entries(byProd).sort(function(a,b){return b[1]-a[1];})[0];
+  var topTxt = topProd ? ('Tu producto más pedido: <strong>'+topProd[0]+'</strong>') : '';
+  if (!cadenciaTxt && !topTxt) { el.innerHTML=''; return; }
+  el.innerHTML = '<div style="background:#F7F9FC;border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--navy);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+    '<span>📊</span><span>' + [cadenciaTxt, topTxt].filter(Boolean).join(' · ') + '</span></div>';
 }
 
 function applyHistFilters(){
@@ -1824,6 +1930,47 @@ function renderStats() {
     } catch(e){}
   });
 
+  // ── Año contra año (comparativa) ──────────────────────────────────────────
+  var yoyHtml = '';
+  if (window._statsPeriod === 'mes' || window._statsPeriod === 'año') {
+    var prevOrders = (fabAllOrders || []).filter(function(o) {
+      if (!o.fecha) return false;
+      var d;
+      try {
+        var s = String(o.fecha).trim();
+        if (s.indexOf('/')>-1) { var p=s.split(' ')[0].split('/'); d=new Date(+p[2],+p[1]-1,+p[0]); }
+        else { var p=s.split('T')[0].split('-'); d=new Date(+p[0],+p[1]-1,+p[2]); }
+      } catch(e) { return false; }
+      if (isNaN(d.getTime())) return false;
+      if (window._statsPeriod === 'mes') return d.getFullYear()===(curY-1) && d.getMonth()===curM;
+      return d.getFullYear()===(curY-1);
+    });
+    var prevImporte = prevOrders.reduce(function(s,o){
+      var items=o.items||[];
+      var t=items.reduce(function(ss,i){return ss+(i.qty||0)*(i.price||0);},0);
+      if (t===0) t=parseFloat(o.total)||0;
+      return s+t;
+    },0);
+    if (prevOrders.length > 0) {
+      var pctImporte = prevImporte>0 ? Math.round((totalImporte-prevImporte)/prevImporte*100) : null;
+      var pctCount = Math.round((orders.length-prevOrders.length)/prevOrders.length*100);
+      var yoyLabel = window._statsPeriod==='mes' ? 'mismo mes, año pasado' : 'año pasado';
+      var mkYoy = function(label, pct, prevVal, prevSuffix){
+        var up = pct===null ? null : pct>=0;
+        var color = up===null ? 'var(--text-mid)' : (up?'#065F46':'#B91C1C');
+        var arrow = up===null ? '—' : (up?'▲':'▼');
+        return '<div style="flex:1;min-width:150px;background:#F7F9FC;border-radius:12px;padding:12px 14px;">' +
+          '<div style="font-size:11px;color:var(--text-mid);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">'+label+' vs '+yoyLabel+'</div>' +
+          '<div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;color:'+color+';">'+arrow+' '+(pct===null?'—':Math.abs(pct)+'%')+'</div>' +
+          '<div style="font-size:11px;color:var(--text-light);">'+prevVal+prevSuffix+' el año pasado</div></div>';
+      };
+      yoyHtml = '<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">' +
+        mkYoy('Facturación', pctImporte, prevImporte.toFixed(2), ' €') +
+        mkYoy('Pedidos', pctCount, prevOrders.length, '') +
+        '</div>';
+    }
+  }
+
   // Sort productos by importe desc
   var topProductos = Object.entries(byProducto).sort(function(a,b){return b[1].importe-a[1].importe;}).slice(0,15);
   var maxProd = topProductos[0] ? topProductos[0][1].importe : 1;
@@ -1926,7 +2073,7 @@ function renderStats() {
   // Render first, then attach listeners
   var _statsHtml = periodHtml +
     '<div style="font-family:Barlow Condensed,sans-serif;font-size:14px;color:var(--text-mid);margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em;">'+periodLabel+' · '+orders.length+' pedidos</div>' +
-    kpiHtml + franqHtml + compHtml + prodHtml + mesHtml;
+    kpiHtml + yoyHtml + franqHtml + compHtml + prodHtml + mesHtml;
   el.innerHTML = _statsHtml;
   el.querySelectorAll('.stats-period-btn').forEach(function(btn){
     btn.addEventListener('click', function(){ setStatsPeriod(this.getAttribute('data-period')); });
@@ -2027,6 +2174,7 @@ function pinGoNew() {
   // Show fab trigger
   var ft=document.getElementById('fab-trigger-main');
   if(ft)ft.style.display='flex';
+  maybeOfferDraftRestore();
 }
 
 function loadMisPedidos(silent) {
@@ -2052,6 +2200,7 @@ function loadMisPedidos(silent) {
       if(p&&p.status!==o.status) changed[o.id]=true;
     });
     window._misPedidos=orders;
+    renderMisPedidosInsight(orders);
     if(!orders.length){
       el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;">No tienes pedidos todavía.<br>Pulsa <strong>+ Nuevo pedido</strong></div>';
       return;
@@ -2243,6 +2392,7 @@ async function loadFromSheet(){
 var _origReset = resetApp;
 resetApp = function() {
   step=1; qtys={};
+  clearDraft();
   ['s1','s2','s3','s4'].forEach(function(s){document.getElementById(s).classList.remove('active');});
   document.getElementById('s0-hidden')||document.getElementById('s1').classList.add('active');
   // Go back to historial
@@ -2273,6 +2423,11 @@ window.addEventListener('load',function(){
   var be=document.getElementById('btn-entrar');if(be)be.addEventListener('click',pinEnter);
   var bn=document.getElementById('btn-nuevo');if(bn)bn.addEventListener('click',pinGoNew);
   var bfp=document.getElementById('btn-fab-pin');if(bfp)bfp.addEventListener('click',function(){openFab();});
+  // Draft autosave: persist text fields as the franchisee types
+  ['contacto','telefono','obs'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.addEventListener('input', saveDraft);
+  });
   // Load products
   loadFromSheet();
   setTimeout(initSearch, 500);
@@ -2402,6 +2557,22 @@ function showAvisosModal(avisos) {
   modal.addEventListener('click', function(e){ if(e.target===modal) modal.remove(); });
 }
 
+function getAllProductNames() {
+  var names = [];
+  var seen = {};
+  function addFrom(list){
+    (list||[]).forEach(function(cat){
+      (cat.items||[]).forEach(function(item){
+        if (item.n && !seen[item.n]) { seen[item.n]=true; names.push(item.n); }
+      });
+    });
+  }
+  addFrom(typeof PRODUCTOS!=='undefined'?PRODUCTOS:[]);
+  addFrom(window._PAN);
+  addFrom(typeof AUX!=='undefined'?AUX:[]);
+  return names.sort(function(a,b){ return a.localeCompare(b,'es'); });
+}
+
 async function renderAvisosPanel() {
   var el = document.getElementById('fab-panel-avisos');
   if (!el) return;
@@ -2410,6 +2581,10 @@ async function renderAvisosPanel() {
     var avisos = data.avisos || [];
     var franqOptions = Object.values(PIN_MAP).map(function(n){
       return '<label style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--navy);padding:4px 0;"><input type="checkbox" class="aviso-franq-chk" value="'+n+'"> '+n+'</label>';
+    }).join('');
+    var productNames = getAllProductNames();
+    var productOptions = '<option value="">Elige un producto (opcional)…</option>' + productNames.map(function(n){
+      return '<option value="'+n.replace(/"/g,'&quot;')+'">'+n+'</option>';
     }).join('');
     var listHtml = avisos.length ? avisos.map(function(a){
       return '<div class="order-card" style="cursor:default;">'+
@@ -2421,6 +2596,13 @@ async function renderAvisosPanel() {
     el.innerHTML =
       '<div style="background:var(--gray);border-radius:16px;padding:16px;margin-bottom:16px;">'+
       '<div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--navy);margin-bottom:10px;">📢 Publicar nuevo aviso</div>'+
+      '<div style="margin-bottom:8px;">'+
+      '<select id="aviso-producto-sel" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;color:var(--navy);background:#fff;box-sizing:border-box;">'+productOptions+'</select>'+
+      '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">'+
+      '<button type="button" class="aviso-tpl-btn" data-tpl="stock" style="padding:6px 12px;border:1.5px solid var(--border);background:#fff;color:var(--navy);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;">⚠️ Poco stock</button>'+
+      '<button type="button" class="aviso-tpl-btn" data-tpl="descatalogado" style="padding:6px 12px;border:1.5px solid var(--border);background:#fff;color:var(--navy);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;">🚫 Ya no se fabrica</button>'+
+      '<button type="button" class="aviso-tpl-btn" data-tpl="oferta" style="padding:6px 12px;border:1.5px solid var(--border);background:#fff;color:var(--navy);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;">🏷️ Oferta/Descuento</button>'+
+      '</div></div>'+
       '<textarea id="aviso-msg" placeholder="Ej: 2x1 en Turrón de Jijona este mes…" style="width:100%;min-height:70px;padding:10px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea>'+
       '<div style="margin:10px 0;"><label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--navy);"><input type="checkbox" id="aviso-todas-chk" checked> Todas las franquicias</label>'+
       '<div id="aviso-franq-list" style="display:none;padding-left:22px;margin-top:6px;">'+franqOptions+'</div></div>'+
@@ -2433,6 +2615,19 @@ async function renderAvisosPanel() {
     var todasChk = document.getElementById('aviso-todas-chk');
     var franqList = document.getElementById('aviso-franq-list');
     todasChk.addEventListener('change', function(){ franqList.style.display = this.checked ? 'none' : ''; });
+
+    var AVISO_TPL = {
+      stock: function(p){ return '⚠️ Queda poco stock de '+p+'. Pedidos por orden de llegada.'; },
+      descatalogado: function(p){ return '🚫 '+p+' ya no se va a fabricar más. Aprovecha si te queda algo pendiente de pedir.'; },
+      oferta: function(p){ return '🏷️ Oferta especial en '+p+' este mes. ¡Aprovecha!'; }
+    };
+    el.querySelectorAll('.aviso-tpl-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var sel = document.getElementById('aviso-producto-sel');
+        var prod = sel && sel.value ? sel.value : '[producto]';
+        document.getElementById('aviso-msg').value = AVISO_TPL[this.getAttribute('data-tpl')](prod);
+      });
+    });
 
     document.getElementById('aviso-publicar-btn').addEventListener('click', function(){
       var msg = document.getElementById('aviso-msg').value.trim();
