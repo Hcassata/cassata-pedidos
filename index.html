@@ -3197,8 +3197,21 @@ function renderSearchResults(q) {
 
   if (!found.length) {
     var suggestion = findClosestProductName(q);
-    var suggestHtml = suggestion ? '<button onclick="var i=document.getElementById(\'product-search\');i.value='+JSON.stringify(suggestion)+';i.dispatchEvent(new Event(\'input\'));">¿Quizás quisiste decir "'+suggestion+'"?</button>' : '';
-    results.innerHTML = '<div class="search-suggestion">No se encontraron productos para "<strong>'+q+'</strong>"' + suggestHtml + '</div>';
+    var esc = function(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+    var suggestHtml = suggestion ? '<button type="button" class="search-suggest-btn" data-suggest="'+esc(suggestion)+'">¿Quizás quisiste decir "'+esc(suggestion)+'"?</button>' : '';
+    results.innerHTML = '<div class="search-suggestion">No se encontraron productos para "<strong>'+esc(q)+'</strong>"' + suggestHtml + '</div>';
+    var suggestBtn = results.querySelector('.search-suggest-btn');
+    if (suggestBtn) {
+      suggestBtn.addEventListener('click', function() {
+        var val = this.getAttribute('data-suggest');
+        var input = document.getElementById('product-search');
+        if (input) {
+          input.value = val;
+          input.dispatchEvent(new Event('input'));
+          input.focus();
+        }
+      });
+    }
     return;
   }
 
