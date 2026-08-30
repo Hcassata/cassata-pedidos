@@ -3111,13 +3111,17 @@ function findClosestProductName(q) {
   var best=null, bestDist=Infinity;
   names.forEach(function(name){
     var norm = normalizeSearch(name);
-    var dist = levenshtein(q, norm);
-    // also consider a partial/substring closeness for longer names
-    if (norm.indexOf(q) > -1) dist = Math.min(dist, 1);
-    if (dist < bestDist) { bestDist = dist; best = name; }
+    // Compare against the whole name AND each individual word, so a typo'd
+    // single word (e.g. "avelana") can match a long multi-word product name.
+    var candidates = norm.split(/[^a-z0-9]+/).filter(Boolean);
+    candidates.push(norm);
+    candidates.forEach(function(w){
+      var dist = levenshtein(q, w);
+      var threshold = Math.max(2, Math.ceil(Math.min(q.length, w.length) * 0.4));
+      if (dist > 0 && dist <= threshold && dist < bestDist) { bestDist = dist; best = name; }
+    });
   });
-  var threshold = Math.max(2, Math.ceil(q.length * 0.4));
-  return (best && bestDist > 0 && bestDist <= threshold) ? best : null;
+  return best;
 }
 function initSearch() {
   var input = document.getElementById('product-search');
