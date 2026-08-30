@@ -2272,6 +2272,13 @@ function showOrderModal(o, canDownload) {
   var modal=document.createElement('div');
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(27,45,107,.5);z-index:700;display:flex;align-items:flex-end;justify-content:center;';
   var dlBtn=canDownload?'<button class="fab-btn fab-btn-excel fab-dl-btn" data-id="'+o.id+'" style="width:100%;padding:14px;margin-top:10px;">📥 Descargar hoja de pedido</button>':'';
+  var recepBtn='';
+  var yaRevisado = !!(o.recepcion && String(o.recepcion).trim());
+  if (!canDownload && o.status==='Enviado') {
+    recepBtn = yaRevisado
+      ? '<button class="fab-btn recep-btn" data-mode="view" style="width:100%;padding:14px;margin-top:10px;background:#EAF7EE;color:#1B7A3D;border:1px solid #B7E4C7;border-radius:10px;font-weight:700;cursor:pointer;">✅ Recepción revisada — ver detalle</button>'
+      : '<button class="fab-btn recep-btn" data-mode="edit" style="width:100%;padding:14px;margin-top:10px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">🧾 Revisar recepción</button>';
+  }
   modal.innerHTML='<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:640px;max-height:88vh;overflow-y:auto;padding:20px;-webkit-overflow-scrolling:touch;">' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">' +
     '<div><div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;color:var(--navy);">'+fmtDate(o.fecha)+'</div>' +
@@ -2279,17 +2286,129 @@ function showOrderModal(o, canDownload) {
     '<button class="modal-close-btn" style="background:var(--gray);border:none;border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer;flex-shrink:0;">✕</button></div>' +
     '<div class="info-strip" style="margin-bottom:14px;"><span>🏪 <strong>'+o.heladeria+'</strong></span>'+(o.contacto?'<span>👤 <strong>'+o.contacto+'</strong></span>':'')+(o.telefono?'<span>📞 <strong>'+o.telefono+'</strong></span>':'')+'</div>' +
     (o.mensaje?'<div style="background:#FFF8E0;border-left:4px solid #F5C518;border-radius:0 10px 10px 0;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#7A6010;">💬 <strong>Mensaje de fábrica:</strong> '+o.mensaje+'</div>':'')+
-    '<div class="card" style="padding:16px 18px;margin-bottom:0;">'+ihtml+'</div>'+dlBtn+'</div>';
+    '<div class="card" style="padding:16px 18px;margin-bottom:0;">'+ihtml+'</div>'+dlBtn+recepBtn+'</div>';
   modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
   document.body.appendChild(modal);
   var cb=modal.querySelector('.modal-close-btn'); if(cb)cb.addEventListener('click',function(){modal.remove();});
   var dlb=modal.querySelector('.fab-dl-btn'); if(dlb)dlb.addEventListener('click',function(e){e.stopPropagation();dlPedidoHTML(this.getAttribute('data-id'));});
+  var rb=modal.querySelector('.recep-btn'); if(rb)rb.addEventListener('click',function(e){
+    e.stopPropagation();
+    var mode=this.getAttribute('data-mode');
+    modal.remove();
+    if (mode==='view') showRecepcionResumen(o); else showRecepcionChecklist(o);
+  });
 }
 
 function showPedidoDetalle(idx) {
   var o=(window._misPedidos||[])[idx];
   if(!o)return;
   showOrderModal(o,false);
+}
+
+// ── CHECKLIST DE RECEPCIÓN ───────────────────────────────────────────────
+// Franchisee reviews a delivered ("Enviado") order and flags missing/damaged
+// items. Saved server-side (column M / "Recepcion") and, if any item is not
+// OK, triggers an immediate email to Chemari via the set_receipt action.
+function showRecepcionChecklist(o) {
+  var items=(o.items||[]).map(function(it,idx){
+    var isAux=it.key.startsWith('AUX|');
+    var ck=it.key.replace(/^(PAN|AUX)\|/,'');
+    var name=isAux?it.key.replace('AUX|',''):ck.split('|')[0];
+    return { idx:idx, nombre:name, qty:it.qty };
+  });
+  var modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(27,45,107,.5);z-index:750;display:flex;align-items:flex-end;justify-content:center;';
+  var rows=items.map(function(it){
+    return '<div class="recep-row" data-idx="'+it.idx+'" data-state="ok" style="padding:12px 0;border-bottom:1px solid var(--border);">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">' +
+        '<span style="font-size:14px;color:var(--navy);font-weight:600;">'+it.nombre+'</span>' +
+        '<span style="font-size:12px;color:#888;flex-shrink:0;">×'+it.qty+'</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;">' +
+        '<button type="button" class="recep-state-btn" data-state="ok" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:#EAF7EE;color:#1B7A3D;font-size:12px;font-weight:700;cursor:pointer;">✅ OK</button>' +
+        '<button type="button" class="recep-state-btn" data-state="falta" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:#fff;color:#B45309;font-size:12px;font-weight:700;cursor:pointer;">❓ Falta</button>' +
+        '<button type="button" class="recep-state-btn" data-state="danado" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:#fff;color:#B91C1C;font-size:12px;font-weight:700;cursor:pointer;">⚠️ Dañado</button>' +
+      '</div>' +
+      '<textarea class="recep-nota" placeholder="Nota (opcional)" style="display:none;width:100%;margin-top:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-family:inherit;resize:vertical;min-height:36px;box-sizing:border-box;"></textarea>' +
+    '</div>';
+  }).join('');
+  modal.innerHTML='<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:640px;max-height:88vh;overflow-y:auto;padding:20px;-webkit-overflow-scrolling:touch;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;color:var(--navy);">🧾 Revisar recepción</div>' +
+    '<button class="modal-close-btn" style="background:var(--gray);border:none;border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer;">✕</button></div>' +
+    '<div style="font-size:13px;color:#888;margin-bottom:10px;">Marca cada producto. Si falta o llega dañado, puedes añadir una nota.</div>' +
+    rows +
+    '<button class="recep-save-btn" style="width:100%;padding:14px;margin-top:16px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;">Guardar revisión</button>' +
+    '</div>';
+  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+  document.body.appendChild(modal);
+  var cb=modal.querySelector('.modal-close-btn'); if(cb)cb.addEventListener('click',function(){modal.remove();});
+
+  modal.querySelectorAll('.recep-state-btn').forEach(function(btn){
+    if (btn.getAttribute('data-state')!=='ok') btn.style.opacity='.45';
+    btn.addEventListener('click', function(){
+      var row=this.closest('.recep-row');
+      var state=this.getAttribute('data-state');
+      row.setAttribute('data-state', state);
+      row.querySelectorAll('.recep-state-btn').forEach(function(b){
+        b.style.opacity = (b.getAttribute('data-state')===state) ? '1' : '.45';
+      });
+      row.querySelector('.recep-nota').style.display = (state==='ok') ? 'none' : 'block';
+    });
+  });
+
+  modal.querySelector('.recep-save-btn').addEventListener('click', function(){
+    var btn=this;
+    var result=[];
+    modal.querySelectorAll('.recep-row').forEach(function(row){
+      var idx=parseInt(row.getAttribute('data-idx'));
+      var it=items[idx];
+      var estado=row.getAttribute('data-state')||'ok';
+      var nota=row.querySelector('.recep-nota').value.trim();
+      result.push({ nombre: it.nombre, qty: it.qty, estado: estado, nota: nota });
+    });
+    btn.disabled=true; btn.textContent='Guardando...';
+    avisosCall({ action:'set_receipt', id:o.id, heladeria:o.heladeria, items:result }, function(){
+      o.recepcion = JSON.stringify({ items: result });
+      var list=window._misPedidos||[];
+      for (var i=0;i<list.length;i++){ if (list[i].id===o.id) list[i].recepcion=o.recepcion; }
+      modal.remove();
+      var toast=document.createElement('div');
+      toast.style.cssText='position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:var(--gold);padding:10px 20px;border-radius:10px;font-size:14px;font-weight:700;z-index:900;white-space:nowrap;';
+      toast.textContent='✅ Revisión guardada, ¡gracias!';
+      document.body.appendChild(toast);
+      setTimeout(function(){ toast.remove(); }, 2500);
+    }, function(){
+      btn.disabled=false; btn.textContent='Guardar revisión';
+      alert('No se pudo guardar la revisión. Inténtalo de nuevo.');
+    });
+  });
+}
+
+function showRecepcionResumen(o) {
+  var data={}; try{ data=JSON.parse(o.recepcion||'{}'); }catch(ex){}
+  var items=data.items||[];
+  var rows=items.map(function(it){
+    var badge = it.estado==='ok' ? '<span style="color:#1B7A3D;font-size:12px;font-weight:700;">✅ OK</span>' :
+                it.estado==='falta' ? '<span style="color:#B45309;font-size:12px;font-weight:700;">❓ Falta</span>' :
+                '<span style="color:#B91C1C;font-size:12px;font-weight:700;">⚠️ Dañado</span>';
+    return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+        '<span style="font-size:14px;color:var(--navy);font-weight:600;">'+it.nombre+' <span style="color:#888;font-weight:400;">×'+it.qty+'</span></span>' + badge +
+      '</div>' +
+      (it.nota?('<div style="font-size:12px;color:#888;margin-top:4px;">📝 '+it.nota+'</div>'):'') +
+    '</div>';
+  }).join('') || '<div class="empty-msg">Sin detalle guardado.</div>';
+  var modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(27,45,107,.5);z-index:750;display:flex;align-items:flex-end;justify-content:center;';
+  modal.innerHTML='<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:640px;max-height:88vh;overflow-y:auto;padding:20px;-webkit-overflow-scrolling:touch;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;color:var(--navy);">✅ Recepción revisada</div>' +
+    '<button class="modal-close-btn" style="background:var(--gray);border:none;border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer;">✕</button></div>' +
+    rows+'</div>';
+  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+  document.body.appendChild(modal);
+  var cb=modal.querySelector('.modal-close-btn'); if(cb)cb.addEventListener('click',function(){modal.remove();});
 }
 
 async function showFranquiciaPedidos(nombre) {
@@ -2707,6 +2826,17 @@ function loadPedidoAnterior(o) {
 }
 
 // ── PRODUCT SEARCH ───────────────────────────────────────────────────────────
+// Strips accents so "turron" also finds "Turrón" — 1-to-1 char replacement,
+// so the returned index stays valid for slicing the original (accented) text.
+function normalizeSearch(s) {
+  return (s||'').toLowerCase()
+    .replace(/[áàäâã]/g,'a')
+    .replace(/[éèëê]/g,'e')
+    .replace(/[íìïî]/g,'i')
+    .replace(/[óòöôõ]/g,'o')
+    .replace(/[úùüû]/g,'u')
+    .replace(/ñ/g,'n');
+}
 function initSearch() {
   var input = document.getElementById('product-search');
   var clear = document.getElementById('search-clear');
@@ -2714,7 +2844,7 @@ function initSearch() {
   if (!input) return;
 
   input.addEventListener('input', function() {
-    var q = this.value.trim().toLowerCase();
+    var q = normalizeSearch(this.value.trim());
     clear.style.display = q ? 'block' : 'none';
     if (!q) {
       results.style.display = 'none';
@@ -2755,7 +2885,7 @@ function renderSearchResults(q) {
   // Search in PRODUCTOS (helados)
   (PRODUCTOS||[]).forEach(function(cat) {
     (cat.items||[]).forEach(function(item) {
-      if (item.n.toLowerCase().indexOf(q) > -1) {
+      if (normalizeSearch(item.n).indexOf(q) > -1) {
         found.push({item:item, type:'helado', cat:cat.cat});
       }
     });
@@ -2764,7 +2894,7 @@ function renderSearchResults(q) {
   // Search in AUX
   (AUX||[]).forEach(function(cat) {
     (cat.items||[]).forEach(function(item) {
-      if (item.n.toLowerCase().indexOf(q) > -1) {
+      if (normalizeSearch(item.n).indexOf(q) > -1) {
         found.push({item:item, type:'aux', cat:cat.cat});
       }
     });
@@ -2773,7 +2903,7 @@ function renderSearchResults(q) {
   // Search in _PAN
   (window._PAN||[]).forEach(function(cat) {
     (cat.items||[]).forEach(function(item) {
-      if (item.n.toLowerCase().indexOf(q) > -1) {
+      if (normalizeSearch(item.n).indexOf(q) > -1) {
         found.push({item:item, type:'pan', cat:cat.cat});
       }
     });
@@ -2854,7 +2984,7 @@ function renderSearchResults(q) {
 }
 
 function highlightMatch(text, q) {
-  var idx = text.toLowerCase().indexOf(q);
+  var idx = normalizeSearch(text).indexOf(q);
   if (idx < 0) return text;
   return text.substring(0, idx) +
     '<mark style="background:#FEF3C7;color:#1B2D6B;border-radius:3px;padding:0 2px;">'+text.substring(idx, idx+q.length)+'</mark>' +
