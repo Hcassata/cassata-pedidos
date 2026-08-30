@@ -323,6 +323,51 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
 /* Card subtle hover */
 .card { transition: box-shadow 0.2s ease !important; }
 .card:hover { box-shadow: 0 6px 20px rgba(27,45,107,0.1) !important; }
+
+/* ── DEPTH FOR TOUCH DEVICES (resting-state shadows, not just :hover) ──── */
+/* Most usage is mobile/PWA, where :hover never fires — cards need a baseline
+   shadow plus an :active (tap) response, not only a mouse-hover effect. */
+.card, .order-card, .hist-order-card {
+  box-shadow: 0 1px 2px rgba(27,45,107,.04), 0 4px 14px rgba(27,45,107,.05);
+}
+.order-card:active, .hist-order-card:active {
+  transform: scale(.985);
+  box-shadow: 0 2px 8px rgba(27,45,107,.1) !important;
+}
+.hist-order-card { transition: all .18s ease; }
+.hist-order-card:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(27,45,107,.12); }
+
+/* ── FRIENDLY EMPTY STATES ───────────────────────────────────────────── */
+.empty-msg { display:flex; flex-direction:column; align-items:center; gap:8px; }
+.empty-icon { font-size:38px; line-height:1; opacity:.55; }
+
+/* ── UNIFIED TOAST ────────────────────────────────────────────────────── */
+.app-toast{
+  position:fixed; top:18px; left:50%; z-index:1000;
+  transform:translate(-50%,-14px); opacity:0;
+  background:var(--navy); color:var(--gold);
+  padding:12px 22px; border-radius:12px;
+  font-family:"Barlow Condensed",sans-serif; font-size:15px; font-weight:800; letter-spacing:.01em;
+  white-space:nowrap; max-width:88vw; overflow:hidden; text-overflow:ellipsis;
+  box-shadow:0 10px 28px rgba(27,45,107,.3);
+  transition:opacity .22s ease, transform .22s cubic-bezier(.34,1.56,.64,1);
+  pointer-events:none;
+}
+.app-toast.show{ opacity:1; transform:translate(-50%,0); }
+.app-toast.app-toast-error{ background:#c0392b; color:#fff; }
+
+/* ── QTY BUMP ON CHANGE ──────────────────────────────────────────────── */
+.qty-num{ display:inline-block; }
+@keyframes qtyBump{ 0%{transform:scale(1);} 45%{transform:scale(1.32);} 100%{transform:scale(1);} }
+.qty-num.qty-bump{ animation:qtyBump .3s ease; }
+
+/* ── CONFETTI (order sent) ───────────────────────────────────────────── */
+.confetti-wrap{ position:fixed; top:0; left:0; right:0; height:0; z-index:1000; pointer-events:none; }
+.confetti-piece{ position:absolute; top:-12px; width:8px; height:14px; border-radius:2px; opacity:.9; animation:confettiFall linear forwards; }
+@keyframes confettiFall{
+  0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+  100%{ transform:translateY(100vh) rotate(360deg); opacity:0; }
+}
 </style>
 
 
@@ -594,7 +639,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--navy);}
               <select id="hist-mes" onchange="applyHistFilters()" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;color:var(--navy);background:#fff;"><option value="">Todos los meses</option></select>
             </div>
           </div>
-          <div id="fab-list-body"><div class="empty-msg">Cargando pedidos…</div></div>
+          <div id="fab-list-body"><div class="empty-msg"><div class="empty-icon">⏳</div>Cargando pedidos…</div></div>
         </div>
         <div id="fab-panel-stats" style="display:none"></div>
         <div id="fab-panel-franq" style="display:none"></div>
@@ -623,6 +668,20 @@ const FESTIVOS   = new Set([
 ]);
 
 // ── HELPERS ─────────────────────────────────────────────────
+function showToast(msg, opts){
+  opts = opts || {};
+  document.querySelectorAll('.app-toast').forEach(function(t){ t.remove(); });
+  const el = document.createElement('div');
+  el.className = 'app-toast' + (opts.error ? ' app-toast-error' : '');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ el.classList.add('show'); }); });
+  const dur = opts.duration || 2600;
+  setTimeout(function(){
+    el.classList.remove('show');
+    setTimeout(function(){ el.remove(); }, 300);
+  }, dur);
+}
 function isoDate(d){ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+dd; }
 function isHabil(d){ const w=d.getDay(); return w!==0&&w!==6&&!FESTIVOS.has(isoDate(d)); }
 function minFecha(){
@@ -781,12 +840,18 @@ const AUX=[
 
 // ── QTY STATE ─────────────────────────────────────────────────
 let qtys={};
+function bumpQty(el){
+  if(!el) return;
+  el.classList.remove('qty-bump');
+  void el.offsetWidth;
+  el.classList.add('qty-bump');
+}
 function chg(key,delta,price){
   if(!qtys[key]) qtys[key]={qty:0,price};
   qtys[key].qty=Math.max(0,qtys[key].qty+delta);
   qtys[key].price=price;
   const el=document.getElementById(safeId(key));
-  if(el){ el.textContent=qtys[key].qty; el.classList.toggle('has-qty',qtys[key].qty>0); }
+  if(el){ el.textContent=qtys[key].qty; el.classList.toggle('has-qty',qtys[key].qty>0); bumpQty(el); }
   saveDraft();
 }
 function getItems(){ return Object.entries(qtys).filter(([k,v])=>v.qty>0); }
@@ -1055,6 +1120,7 @@ function sendOrder(){
   // Show success immediately - don't wait for download
   document.getElementById('success-resumen').innerHTML=document.getElementById('resumen-card').innerHTML;
   show('s3','s4');
+  fireConfetti();
   clearDraft();
   document.getElementById('bottom-bar').style.display='none';
   var wabtn = document.getElementById('btn-whatsapp');
@@ -1305,7 +1371,7 @@ async function fabLogin(){
 
 async function fabRefresh(){
   if (fabListMode !== 'historico') {
-    document.getElementById('fab-list-body').innerHTML='<div class="empty-msg">⏳ Cargando pedidos…</div>';
+    document.getElementById('fab-list-body').innerHTML='<div class="empty-msg"><div class="empty-icon">⏳</div>Cargando pedidos…</div>';
   }
   await fabFetchActive();
   updateBadge();
@@ -1329,7 +1395,7 @@ function setListMode(mode){
   if (mode === 'activos') {
     renderOrders();
   } else {
-    if (!fabAllOrders.length) document.getElementById('fab-list-body').innerHTML='<div class="empty-msg">⏳ Cargando histórico completo de pedidos…</div>';
+    if (!fabAllOrders.length) document.getElementById('fab-list-body').innerHTML='<div class="empty-msg"><div class="empty-icon">⏳</div>Cargando histórico completo de pedidos…</div>';
     ensureAllOrders().then(function(){ populateHistFilters(); renderHistorico(); });
   }
 }
@@ -1414,7 +1480,7 @@ function renderHistorico(){
     }
     return true;
   });
-  if (!orders.length){ el.innerHTML='<div class="empty-msg">No hay pedidos con estos filtros.</div>'; return; }
+  if (!orders.length){ el.innerHTML='<div class="empty-msg"><div class="empty-icon">🔍</div>No hay pedidos con estos filtros.</div>'; return; }
   el.innerHTML=orders.map(function(o){
     var tot=o.total>0?parseFloat(o.total).toFixed(2)+' €':'—';
     return '<div class="order-card fab-hist-card" data-id="'+o.id+'">'+
@@ -1479,7 +1545,7 @@ async function ensureAllOrdersWithSpinner(panelId){
   var needsFetch = (Date.now() - _allOrdersLoadedAt) > 60000 || !fabAllOrders.length;
   if (needsFetch) {
     var el = document.getElementById(panelId);
-    if (el) el.innerHTML = '<div class="empty-msg">⏳ Cargando histórico completo de pedidos…</div>';
+    if (el) el.innerHTML = '<div class="empty-msg"><div class="empty-icon">⏳</div>Cargando histórico completo de pedidos…</div>';
   }
   await ensureAllOrders();
 }
@@ -1491,7 +1557,7 @@ function statusLabel(s){
 
 function renderOrders(){
   const el=document.getElementById('fab-list-body');
-  if(!fabOrders.length){ el.innerHTML='<div class="empty-msg">No hay pedidos activos ahora mismo.</div>'; return; }
+  if(!fabOrders.length){ el.innerHTML='<div class="empty-msg"><div class="empty-icon">🍦</div>No hay pedidos activos ahora mismo.</div>'; return; }
 
   const cardHtml=(o,i)=>{
     const tot=o.total>0?parseFloat(o.total).toFixed(2)+' €':'—';
@@ -1760,12 +1826,7 @@ function editPedido(idx) {
       resultsEl.style.display = 'none';
       render();
       attachSearch(); // re-attach after re-render
-      // Show toast
-      var toast = document.createElement('div');
-      toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:var(--gold);padding:10px 20px;border-radius:10px;font-size:14px;font-weight:700;z-index:900;white-space:nowrap;';
-      toast.textContent = '✓ '+name+' añadido';
-      document.body.appendChild(toast);
-      setTimeout(function(){ toast.remove(); }, 2000);
+      showToast('✓ '+name+' añadido');
     });
 
     // Hide results when clicking outside
@@ -1881,7 +1942,7 @@ function renderStats() {
   if (!orders.length) {
     // Render first, then attach listeners
   var _statsHtml = periodHtml +
-      '<div class="empty-msg">No hay pedidos en este período.</div>';
+      '<div class="empty-msg"><div class="empty-icon">📅</div>No hay pedidos en este período.</div>';
     return;
   }
 
@@ -2375,11 +2436,7 @@ function showRecepcionChecklist(o) {
       var list=window._misPedidos||[];
       for (var i=0;i<list.length;i++){ if (list[i].id===o.id) list[i].recepcion=o.recepcion; }
       modal.remove();
-      var toast=document.createElement('div');
-      toast.style.cssText='position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:var(--gold);padding:10px 20px;border-radius:10px;font-size:14px;font-weight:700;z-index:900;white-space:nowrap;';
-      toast.textContent='✅ Revisión guardada, ¡gracias!';
-      document.body.appendChild(toast);
-      setTimeout(function(){ toast.remove(); }, 2500);
+      showToast('✅ Revisión guardada, ¡gracias!');
     }, function(){
       btn.disabled=false; btn.textContent='Guardar revisión';
       alert('No se pudo guardar la revisión. Inténtalo de nuevo.');
@@ -2400,7 +2457,7 @@ function showRecepcionResumen(o) {
       '</div>' +
       (it.nota?('<div style="font-size:12px;color:#888;margin-top:4px;">📝 '+it.nota+'</div>'):'') +
     '</div>';
-  }).join('') || '<div class="empty-msg">Sin detalle guardado.</div>';
+  }).join('') || '<div class="empty-msg"><div class="empty-icon">📋</div>Sin detalle guardado.</div>';
   var modal=document.createElement('div');
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(27,45,107,.5);z-index:750;display:flex;align-items:flex-end;justify-content:center;';
   modal.innerHTML='<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:640px;max-height:88vh;overflow-y:auto;padding:20px;-webkit-overflow-scrolling:touch;">' +
@@ -2425,7 +2482,7 @@ async function showFranquiciaPedidos(nombre) {
     return '<div class="order-card fab-order-card" data-id="'+o.id+'" style="cursor:pointer;">' +
       '<div class="order-card-top"><span class="order-heladeria">'+fmtDate(o.fecha)+'</span><span class="order-status '+sc+'">'+si+'</span></div>' +
       '<div class="order-meta">Total: <strong>'+tot+'</strong> · '+(o.items||[]).length+' productos</div></div>';
-  }).join(''):'<div class="empty-msg">Sin pedidos todavía</div>';
+  }).join(''):'<div class="empty-msg"><div class="empty-icon">🍦</div>Sin pedidos todavía</div>';
   modal.innerHTML='<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:640px;max-height:88vh;overflow-y:auto;padding:20px;-webkit-overflow-scrolling:touch;">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
     '<div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;color:var(--navy);">🏪 '+nombre+'</div>' +
@@ -2550,6 +2607,7 @@ window.addEventListener('load',function(){
     if(el) el.addEventListener('input', saveDraft);
   });
   // Load products
+  showSkeletonProducts();
   loadFromSheet();
   setTimeout(initSearch, 500);
 });
@@ -2697,7 +2755,7 @@ function getAllProductNames() {
 async function renderAvisosPanel() {
   var el = document.getElementById('fab-panel-avisos');
   if (!el) return;
-  el.innerHTML = '<div class="empty-msg">⏳ Cargando avisos…</div>';
+  el.innerHTML = '<div class="empty-msg"><div class="empty-icon">⏳</div>Cargando avisos…</div>';
   avisosCall({ action:'get_avisos' }, function(data){
     var avisos = data.avisos || [];
     var franqOptions = Object.values(PIN_MAP).map(function(n){
@@ -2713,7 +2771,7 @@ async function renderAvisosPanel() {
         '<div class="order-meta">🎯 '+String(a.franquicias||'Todas')+' · 🕒 '+String(a.creado||'')+'</div>'+
         '<button class="aviso-quitar-btn" data-id="'+a.id+'" style="margin-top:8px;padding:8px 16px;background:#fff;border:1.5px solid var(--navy);color:var(--navy);border-radius:10px;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Quitar</button>'+
         '</div>';
-    }).join('') : '<div class="empty-msg">No hay avisos activos ahora mismo.</div>';
+    }).join('') : '<div class="empty-msg"><div class="empty-icon">🔔</div>No hay avisos activos ahora mismo.</div>';
     el.innerHTML =
       '<div style="background:var(--gray);border-radius:16px;padding:16px;margin-bottom:16px;">'+
       '<div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--navy);margin-bottom:10px;">📢 Publicar nuevo aviso</div>'+
@@ -2783,7 +2841,7 @@ async function renderAvisosPanel() {
       });
     });
   }, function(){
-    el.innerHTML = '<div class="empty-msg">Error al cargar avisos.</div>';
+    el.innerHTML = '<div class="empty-msg"><div class="empty-icon">⚠️</div>Error al cargar avisos.</div>';
   });
 }
 
@@ -2818,12 +2876,7 @@ function loadPedidoAnterior(o) {
     buildAll(); // rebuild product list with qtys already set
     switchTab('helados');
 
-    // Show toast
-    var toast = document.createElement('div');
-    toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1B2D6B;color:#F5C518;padding:12px 20px;border-radius:12px;font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:800;z-index:999;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.2);';
-    toast.textContent = '🔁 Pedido cargado — elige la fecha en el paso anterior';
-    document.body.appendChild(toast);
-    setTimeout(function(){ toast.remove(); }, 4000);
+    showToast('🔁 Pedido cargado — elige la fecha en el paso anterior', {duration:4000});
   }, 300);
 }
 
@@ -2980,6 +3033,7 @@ function renderSearchResults(q) {
         var qty = qtys[key] ? qtys[key].qty : 0;
         span.textContent = qty;
         span.classList.toggle('has-qty', qty > 0);
+        bumpQty(span);
       }
     });
   });
@@ -3654,19 +3708,39 @@ function showSkeletonHistorial() {
 }
 
 function showSkeletonProducts() {
-  var panels = ['panel-helados', 'panel-pan', 'panel-aux'];
-  panels.forEach(function(id) {
+  var lists = ['product-list', 'pan-list', 'aux-list'];
+  var skeletons = Array(6).fill(0).map(function() {
+    return '<div class="skeleton-card" style="display:flex;align-items:center;gap:10px;padding:10px 0;">' +
+      '<div class="sk-line" style="flex:1;height:14px;border-radius:4px;"></div>' +
+      '<div class="sk-line" style="width:50px;height:14px;border-radius:4px;"></div>' +
+      '<div class="sk-line" style="width:70px;height:30px;border-radius:8px;"></div>' +
+      '</div>';
+  }).join('');
+  lists.forEach(function(id) {
     var el = document.getElementById(id);
-    if (!el || el.style.display === 'none') return;
-    var skeletons = Array(6).fill(0).map(function() {
-      return '<div class="skeleton-card" style="display:flex;align-items:center;gap:10px;padding:10px 0;">' +
-        '<div class="sk-line" style="flex:1;height:14px;border-radius:4px;"></div>' +
-        '<div class="sk-line" style="width:50px;height:14px;border-radius:4px;"></div>' +
-        '<div class="sk-line" style="width:70px;height:30px;border-radius:8px;"></div>' +
-        '</div>';
-    }).join('');
-    el.innerHTML = '<div style="padding:0 4px;">' + skeletons + '</div>';
+    if (!el) return;
+    el.innerHTML = skeletons;
   });
+}
+
+// ── CONFETI AL ENVIAR PEDIDO ───────────────────────────────────────────────────
+function fireConfetti() {
+  var colors = ['#1b2d6b', '#c9a227', '#7ec4e8'];
+  var wrap = document.createElement('div');
+  wrap.className = 'confetti-wrap';
+  var n = 24;
+  for (var i = 0; i < n; i++) {
+    var p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.left = (Math.random() * 100) + '%';
+    p.style.background = colors[i % colors.length];
+    p.style.animationDelay = (Math.random() * 0.4) + 's';
+    p.style.animationDuration = (1.6 + Math.random() * 1) + 's';
+    p.style.transform = 'rotate(' + Math.floor(Math.random() * 360) + 'deg)';
+    wrap.appendChild(p);
+  }
+  document.body.appendChild(wrap);
+  setTimeout(function(){ wrap.remove(); }, 3000);
 }
 
 // ── NÚMERO ANIMADO EN PANTALLA DE ÉXITO ───────────────────────────────────────
